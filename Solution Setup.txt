@@ -1,0 +1,9 @@
+This solution requires the 'RoboSharp' repo to be cloned as well.
+
+Clone the RoboSharp repo into a RoboSharp folder so that the following folder structure is present:
+
+Required Folder Structure:
+
+\repos\RoboSharp\RoboSharp
+\repos\RoboSharp\RoboSharp.BackupApp
+\repos\RFBCodeWorks\CachedRoboCopy

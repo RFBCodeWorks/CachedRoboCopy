@@ -144,7 +144,7 @@ namespace RFBCodeWorks.CachedRoboCopy
 
         #region < Properties >
 
-        private CancellationTokenSource CancellationSource;
+        //private CancellationTokenSource CancellationSource;
 
         /// <summary>
         /// The Source Directory
@@ -281,7 +281,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <returns></returns>
         public FileCopier[] GetFileCopiers()
         {
-            return RoboSharp.Extensions.IDirectorySourceDestinationPairExtensions.GetFilePairs(this, (i1, i2) => new FileCopier(i1, i2));
+            return ISourceDestinationPairExtensions.GetFilePairs(this, (i1, i2) => new FileCopier(i1, i2));
         }
 
         /// <summary>
@@ -290,7 +290,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <returns></returns>
         public IEnumerable<FileCopier> GetFileCopiersEnumerable()
         {
-            return RoboSharp.Extensions.IDirectorySourceDestinationPairExtensions.GetFilePairsEnumerable(this, (i1, i2) => new FileCopier(i1, i2));
+            return ISourceDestinationPairExtensions.GetFilePairsEnumerable(this, (i1, i2) => new FileCopier(i1, i2));
         }
 
 
@@ -300,7 +300,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <returns></returns>
         public DirectoryCopier[] GetDirectoryCopiers()
         {
-            return RoboSharp.Extensions.IDirectorySourceDestinationPairExtensions.GetDirectoryPairs(this, (i, i2) => new DirectoryCopier(i, i2));
+            return ISourceDestinationPairExtensions.GetDirectoryPairs(this, (i, i2) => new DirectoryCopier(i, i2));
         }
 
         /// <summary>
@@ -309,7 +309,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <returns></returns>
         public IEnumerable<DirectoryCopier> GetDirectoryCopiersEnumerable()
         {
-            return RoboSharp.Extensions.IDirectorySourceDestinationPairExtensions.GetDirectoryPairsEnumerable(this, (i, i2) => new DirectoryCopier(i, i2));
+            return ISourceDestinationPairExtensions.GetDirectoryPairsEnumerable(this, (i, i2) => new DirectoryCopier(i, i2));
         }
 
         #endregion

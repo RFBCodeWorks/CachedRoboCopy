@@ -237,9 +237,6 @@ namespace RFBCodeWorks.CachedRoboCopy
             #endregion
         }
 
-
-
-
         /// <inheritdoc/>
         public override void Stop()
         {

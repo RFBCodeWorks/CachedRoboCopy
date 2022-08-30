@@ -1,6 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-      <TargetFrameworks>netstandard2.0;net472;net48;net5.0-windows</TargetFrameworks>
+      <TargetFrameworks>
+        netstandard2.0;
+        netstandard2.1;
+        netcoreapp3.1;
+        net472;
+        net5.0-windows
+      </TargetFrameworks>
       <OutputType>Library</OutputType>
       <LangVersion>9</LangVersion>
       <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -20,6 +26,8 @@
         <DocumentationFile>bin\Release\$(TargetFramework)\CachedRoboCopy.xml</DocumentationFile>
     </PropertyGroup>
     <ItemGroup>
-      <ProjectReference Include="..\..\..\RoboSharp\RoboSharp\RoboSharp.csproj" />
+      <ProjectReference Include="..\..\..\RoboSharp\RoboSharp\RoboSharp.csproj">
+        <Private>true</Private>
+      </ProjectReference>
     </ItemGroup>
 </Project>

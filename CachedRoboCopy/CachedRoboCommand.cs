@@ -16,8 +16,28 @@ namespace RFBCodeWorks.CachedRoboCopy
     /// <summary>
     /// Iterate through the directories to move the directories and files quicker than RoboCopy does
     /// </summary>
-    public class CachedRoboCopy : RoboSharp.Extensions.AbstractCustomIRoboCommand
+    public class CachedRoboCommand : RoboSharp.Extensions.AbstractCustomIRoboCommand
     {
+
+        #region < Constructors >
+
+        /// <summary>
+        /// Create a new CachedRoboCommand
+        /// </summary>
+        public CachedRoboCommand() : base() { }
+        
+        /// <summary>
+        /// Create a new CachedRoboCommand
+        /// </summary>
+        /// <inheritdoc cref="AbstractCustomIRoboCommand.AbstractCustomIRoboCommand(string, string, CopyOptions.CopyActionFlags, SelectionOptions.SelectionFlags)"/>
+        public CachedRoboCommand(string source, string destination, 
+            CopyOptions.CopyActionFlags copyActionFlags = CopyOptions.CopyActionFlags.Default,
+            SelectionOptions.SelectionFlags selectionFlags = SelectionOptions.SelectionFlags.Default) : base(source, destination, copyActionFlags, selectionFlags) 
+        { 
+
+        }
+
+        #endregion
 
         private CancellationTokenSource CancellationTokenSource { get; set; }
         private bool HasBeenListed { get; set; }
@@ -26,6 +46,11 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// ONLY FOR MOVING ENTIRE DIRECTORIES THAT DON'T EXIST IN THE DESTINATION
         /// </summary>
         private List<DirectoryCopier> DirCopiers { get; } = new();
+        
+        /// <summary>
+        /// List of Empty Dirs to Create
+        /// </summary>
+        private List<DirectoryCopier> EmptyDirsToCreate { get; } = new();
 
         private List<DirectoryCopier> DirInfos { get; } = new();
         /// <summary>
@@ -70,10 +95,12 @@ namespace RFBCodeWorks.CachedRoboCopy
             RaiseOnProgressEstimatorCreated(base.IProgressEstimator);
             
             bool mirror = CopyOptions.Mirror;
+            bool includeEmptyDirs = mirror | CopyOptions.CopySubdirectoriesIncludingEmpty;
+            bool includeSubDirs = includeEmptyDirs | CopyOptions.CopySubdirectories;
             bool move = !mirror && (CopyOptions.MoveFiles | CopyOptions.MoveFilesAndDirectories);
             bool verbose = LoggingOptions.VerboseOutput;
 
-            var RunTask = new Task(async () =>
+            var RunTask = Task.Factory.StartNew(async () =>
            {
                //Generate the IEnumerables
                if (!HasBeenListed | listOnly)
@@ -99,7 +126,17 @@ namespace RFBCodeWorks.CachedRoboCopy
                            }
                            else
                            {
-                               FileCopiers.Concat(TopLevelDirectory.GetFileCopiersEnumerable());
+                               var dirFiles = dir.GetFileCopiersEnumerable();
+                               if (dirFiles.Any())
+                               {
+                                   FileCopiers = FileCopiers.Concat(dirFiles).AsCachedEnumerable();
+                               }
+                               else if (includeEmptyDirs)
+                               {
+                                   EmptyDirsToCreate.Add(dir);
+                               }
+                               
+                               
                                foreach (var d in dir.GetDirectoryCopiersEnumerable())
                                {
                                    if (CancellationTokenSource.IsCancellationRequested) break;
@@ -110,12 +147,28 @@ namespace RFBCodeWorks.CachedRoboCopy
                    }
                    bool IsLessThanMaxDepth(int depth)
                    {
-                       if (CopyOptions.Depth <= 0) return true;
+                       if (CopyOptions.Depth <= 0) return includeSubDirs;
                        return depth <= CopyOptions.Depth;
                    }
                }
 
                List<Task> CopyTasks = new();
+
+               // Empty Source Dirs
+               foreach (var d in EmptyDirsToCreate)
+               {
+                   if (CancellationTokenSource.IsCancellationRequested) break;
+                   resultsBuilder.AddDir(d.RoboSharpInfo);
+                   if (!listOnly)
+                   {
+                       if (move && !d.Destination.Exists)
+                           d.Source.MoveTo(d.Destination.FullName);
+                       else if (move && d.Destination.Exists)
+                       { /* do nothing */ }
+                       else
+                           d.Destination.Create();
+                   }
+               }
 
                foreach (var d in DirCopiers)
                {
@@ -125,10 +178,10 @@ namespace RFBCodeWorks.CachedRoboCopy
                    {
                        CopyTasks.Add(Task.Run(() => d.Source.MoveTo(d.Destination.FullName)));
                        //Wait Completion
-                       if (ShouldWait()) await Task.Delay(100);
+                       while (ShouldWait()) await Task.Delay(100);
                    }
                }
-               await CopyTasks.WhenAll(CancellationTokenSource.Token);
+               await  CopyTasks.WhenAll(CancellationTokenSource.Token);
 
                // Loop through the copiers
                foreach (var f in FileCopiers)
@@ -188,7 +241,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                    }
 
                    //Wait Completion
-                   if (ShouldWait())
+                   while (ShouldWait())
                        await Task.Delay(100);
                }
 
@@ -206,6 +259,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                bool ShouldWait()
                {
                    if (CancellationTokenSource.IsCancellationRequested) return false;
+                   if (CopyOptions.MultiThreadedCopiesCount <= 0) return false;
                    if (CopyTasks.Where(t => t.Status < TaskStatus.RanToCompletion).Count() >= CopyOptions.MultiThreadedCopiesCount) return true;
                    return false;
                }
@@ -221,12 +275,13 @@ namespace RFBCodeWorks.CachedRoboCopy
                        resultsBuilder.AddSystemMessage($"{e.Source} -- CANCELLED");
                }
 
-           }, TaskCreationOptions.LongRunning);
+           }, TaskCreationOptions.LongRunning).Unwrap();
 
             var finishTask = RunTask.ContinueWith((runTask) =>
             {
                 IsRunning = false;
                 IsPaused = false;
+                CancellationTokenSource?.Cancel();
                 CancellationTokenSource?.Dispose();
 
                 if (runTask.IsFaulted)

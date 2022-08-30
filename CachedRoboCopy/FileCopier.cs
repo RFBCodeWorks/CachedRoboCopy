@@ -141,9 +141,9 @@ namespace RFBCodeWorks.CachedRoboCopy
         public event FileCopyFailedHandler FileCopyFailed;
 
         /// <summary> Raises the FileCopyFailed event </summary>
-        protected virtual void OnFileCopyFailed(string error = "", bool skipped =false, bool cancelled = false, bool failed = false)
+        protected virtual void OnFileCopyFailed(string error = "",  bool cancelled = false, bool failed = false)
         {
-            FileCopyFailed?.Invoke(this, new FileCopyFailedEventArgs(this, error, skipped, failed, cancelled));
+            FileCopyFailed?.Invoke(this, new FileCopyFailedEventArgs(this, error, failed, cancelled));
         }
 
         #endregion
@@ -332,7 +332,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         {
             if (!overWrite && File.Exists(Destination.FullName))
             {
-                OnFileCopyFailed("Destination file already exists", skipped: true);
+                OnFileCopyFailed("Destination file already exists", cancelled: true);
                 return Task.FromResult(false);
             }
 
@@ -382,7 +382,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary>
         /// Process the callback from CopyFileEx
         /// </summary>
-        /// <inheritdoc cref="System.CopyFileEx.FileCopyEx.CopyProgressRoutine"/>
+        /// <inheritdoc cref="FileCopyEx.CopyProgressRoutine"/>
         private CopyProgressResult CopyProgressHandler(long TotalFileSize, long TotalBytesTransferred, long StreamSize, long StreamBytesTransferred, uint dwStreamNumber, CopyProgressCallbackReason dwCallbackReason, IntPtr hSourceFile, IntPtr hDestinationFile, IntPtr lpData)
         {
             //when a chunk is finished call the progress changed.
