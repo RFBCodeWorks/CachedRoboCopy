@@ -27,14 +27,19 @@ namespace RFBCodeWorks.CachedRoboCopy
             if (!Path.IsPathRooted(sourceDir)) throw new ArgumentException("Path is not rooted", nameof(sourceDir));
             if (!Path.IsPathRooted(destinationDir)) throw new ArgumentException("Path is not rooted", nameof(destinationDir));
 
-            this.Source = new DirectoryInfo(sourceDir);
-            this.Destination = new DirectoryInfo(destinationDir);
+            var source = new DirectoryInfo(sourceDir);
+            var dest= new DirectoryInfo(destinationDir);
+
+            this.Source = source;
+            this.Destination = dest;
+            Refresh();
         }
 
         public DirectoryCopier(DirectoryInfo sourceDir, DirectoryInfo destinationDir)
         {
             this.Source = sourceDir ?? throw new ArgumentNullException(nameof(sourceDir));
             this.Destination = destinationDir ?? throw new ArgumentNullException(nameof(destinationDir));
+            Refresh();
         }
 
         public DirectoryCopier(IDirectorySourceDestinationPair directoryPair)
@@ -42,6 +47,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             if (directoryPair is null) throw new ArgumentNullException(nameof(directoryPair));
             this.Source = directoryPair?.Source ?? throw new ArgumentNullException("Source");
             this.Destination = directoryPair?.Destination ?? throw new ArgumentNullException("Destination");
+            Refresh();
         }
 
 
@@ -161,15 +167,47 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// </summary>
         public ProcessedFileInfo RoboSharpInfo { get; set; }
 
+        ///// <summary>
+        ///// 
+        ///// </summary>
+        //public bool IsCopying
+        //{
+        //    get { return IsCopyingField; }
+        //    set { SetProperty(ref IsCopyingField, value, nameof(IsCopying)); }
+        //}
+        //private bool IsCopyingField;
+
         /// <summary>
-        /// 
+        /// The combined list of directory pairs that reside within the Source and Destination
         /// </summary>
-        public bool IsCopying
-        {
-            get { return IsCopyingField; }
-            set { SetProperty(ref IsCopyingField, value, nameof(IsCopying)); }
-        }
-        private bool IsCopyingField;
+        public CachedEnumerable<DirectoryCopier> SubDirectories { get; private set; }
+
+        /// <summary>
+        /// The combines list of file pairs that reside within the Source and Destination
+        /// </summary>
+        public CachedEnumerable<FileCopier> Files { get; private set; }
+
+        public bool HasFiles => Files.Any();
+
+        public bool HasSubdirectories => SubDirectories.Any();
+
+        public bool IsEmpty => !HasFiles & !HasSubdirectories;
+
+        public bool SourceHasSubDirectories { get; private set; }
+        public bool SourceHasFiles { get; private set; }
+
+        public bool IsSourceEmpty => !SourceHasFiles && !SourceHasSubDirectories;
+
+        /// <inheritdoc cref="SelectionOptionsExtensions.IsLonely(IDirectorySourceDestinationPair)"/>
+        public bool IsLonely => ((IDirectorySourceDestinationPair)this).IsLonely();
+
+        /// <inheritdoc cref="SelectionOptionsExtensions.IsExtra(IDirectorySourceDestinationPair)"/>
+        public bool IsExtra => ((IDirectorySourceDestinationPair)this).IsExtra();
+
+        //DirectoryInfo IDirectorySourceDestinationPair.Source => Source.DirectoryInfo;
+
+        //DirectoryInfo IDirectorySourceDestinationPair.Destination => Destination.DirectoryInfo;
+
 
 
         #endregion
@@ -276,10 +314,44 @@ namespace RFBCodeWorks.CachedRoboCopy
         //}
 
         /// <summary>
+        /// Refresh the entire object, including the cached enumerables
+        /// </summary>
+        public void Refresh()
+        {
+            Source.Refresh();
+            Destination.Refresh();
+            SourceHasFiles = Source.HasFiles();
+            SourceHasSubDirectories = Source.HasSubDirectories();
+            Files = GetFileCopiersEnumerable();
+            SubDirectories = GetDirectoryCopiersEnumerable();
+        }
+
+        public void Purge(RetryOptions options)
+        {
+            int attempts = 1;
+            Source.Refresh();
+            Destination.Refresh();
+        tryDelete:
+            try {
+
+                if (IsExtra)
+                { Destination.Delete(true);
+                    Destination.Refresh();
+                }
+            }
+            catch(Exception e)
+            {
+                if (attempts < options.RetryCount)
+                    goto tryDelete;
+
+            }
+        }
+
+        /// <summary>
         /// Generate the FileCopiers
         /// </summary>
         /// <returns></returns>
-        public FileCopier[] GetFileCopiers()
+        private FileCopier[] GetFileCopiers()
         {
             return ISourceDestinationPairExtensions.GetFilePairs(this, (i1, i2) => new FileCopier(i1, i2));
         }
@@ -288,7 +360,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// Generate the FileCopiers
         /// </summary>
         /// <returns></returns>
-        public IEnumerable<FileCopier> GetFileCopiersEnumerable()
+        private CachedEnumerable<FileCopier> GetFileCopiersEnumerable()
         {
             return ISourceDestinationPairExtensions.GetFilePairsEnumerable(this, (i1, i2) => new FileCopier(i1, i2));
         }
@@ -298,7 +370,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// Generate the DirectoryCopiers
         /// </summary>
         /// <returns></returns>
-        public DirectoryCopier[] GetDirectoryCopiers()
+        private DirectoryCopier[] GetDirectoryCopiers()
         {
             return ISourceDestinationPairExtensions.GetDirectoryPairs(this, (i, i2) => new DirectoryCopier(i, i2));
         }
@@ -307,7 +379,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// Generate the DirectoryCopiers
         /// </summary>
         /// <returns></returns>
-        public IEnumerable<DirectoryCopier> GetDirectoryCopiersEnumerable()
+        private CachedEnumerable<DirectoryCopier> GetDirectoryCopiersEnumerable()
         {
             return ISourceDestinationPairExtensions.GetDirectoryPairsEnumerable(this, (i, i2) => new DirectoryCopier(i, i2));
         }

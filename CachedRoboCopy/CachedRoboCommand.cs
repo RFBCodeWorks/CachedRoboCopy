@@ -40,23 +40,23 @@ namespace RFBCodeWorks.CachedRoboCopy
         #endregion
 
         private CancellationTokenSource CancellationTokenSource { get; set; }
-        private bool HasBeenListed { get; set; }
+        //private bool HasBeenListed { get; set; }
         
-        /// <summary>
-        /// ONLY FOR MOVING ENTIRE DIRECTORIES THAT DON'T EXIST IN THE DESTINATION
-        /// </summary>
-        private List<DirectoryCopier> DirCopiers { get; } = new();
+        ///// <summary>
+        ///// ONLY FOR MOVING ENTIRE DIRECTORIES THAT DON'T EXIST IN THE DESTINATION
+        ///// </summary>
+        //private List<DirectoryCopier> DirsToMove { get; } = new();
         
-        /// <summary>
-        /// List of Empty Dirs to Create
-        /// </summary>
-        private List<DirectoryCopier> EmptyDirsToCreate { get; } = new();
+        ///// <summary>
+        ///// List of Dirs where the Source is empty of files
+        ///// </summary>
+        //private List<DirectoryCopier> EmptyDirs { get; } = new();
 
-        private List<DirectoryCopier> DirInfos { get; } = new();
-        /// <summary>
-        /// Used for all Copy/Move operations that may or may not exist in the destination
-        /// </summary>
-        private IEnumerable<FileCopier> FileCopiers { get; set; }
+        //private List<DirectoryCopier> DirInfos { get; } = new();
+        ///// <summary>
+        ///// Used for all Copy/Move operations that may or may not exist in the destination
+        ///// </summary>
+        //private IEnumerable<FileCopier> FileCopiers { get; set; }
         
         private ProcessedFileInfo LastDirectoryInfo { get; set; }
         private DirectoryCopier TopLevelDirectory { get; set; }
@@ -79,7 +79,11 @@ namespace RFBCodeWorks.CachedRoboCopy
                     TopLevelDirectory = new DirectoryCopier(CopyOptions.Source, CopyOptions.Destination);
                     evaluator.ShouldCopyDir(TopLevelDirectory, out var info);
                     TopLevelDirectory.RoboSharpInfo = info;
-                    HasBeenListed = false;
+                    //HasBeenListed = false;
+                }
+                else if (listOnly)
+                {
+                    TopLevelDirectory.Refresh();
                 }
             }
             catch(Exception e)
@@ -98,53 +102,129 @@ namespace RFBCodeWorks.CachedRoboCopy
             bool includeEmptyDirs = mirror | CopyOptions.CopySubdirectoriesIncludingEmpty;
             bool includeSubDirs = includeEmptyDirs | CopyOptions.CopySubdirectories;
             bool move = !mirror && (CopyOptions.MoveFiles | CopyOptions.MoveFilesAndDirectories);
+            bool purgeExtras = mirror | CopyOptions.Purge;
             bool verbose = LoggingOptions.VerboseOutput;
 
             var RunTask = Task.Factory.StartNew(async () =>
            {
-               //Generate the IEnumerables
-               if (!HasBeenListed | listOnly)
+               List<Task> CopyTasks = new();
+
+
+               Task Dig(DirectoryCopier dir, int currentDepth = 0)
                {
-                   // Must get all the copiers
-                   DirCopiers.Clear();
-                   DirInfos.Clear();
-                   FileCopiers = new FileCopier[] { };
+                    bool shouldCopyDir;
+                    if (currentDepth <= 0) // Depth 0 = top level folder, which already has its info generated.
+                    {
+                        shouldCopyDir = true;
+                        currentDepth = 0;
+                    } else
+                    {
+                        shouldCopyDir = IsLessThanMaxDepth(currentDepth) & evaluator.ShouldCopyDir(dir, out var info);
+                        dir.RoboSharpInfo = info;
+                    }
 
-                   GetAllCopiers(TopLevelDirectory);
-                   HasBeenListed = true;
+                    if (dir.IsExtra)    // Exists in destination, not source
+                    {
+                        if (!listOnly && purgeExtras && Directory.Exists(dir.Destination.FullName))
+                        {
+                            dir.Destination.Delete(true);
+                            dir.Refresh();
+                        }
+                    }
+                    if (shouldCopyDir)
+                    {
 
-                   void GetAllCopiers(DirectoryCopier dir, int currentDepth = 0)
+
+
+
+
+                        // Loop through the copiers
+                        foreach (var f in FileCopiers)
                    {
-                       bool shouldCopyDir = IsLessThanMaxDepth(currentDepth) & evaluator.ShouldCopyDir(dir, out var info);
-                       DirInfos.Add(dir);
-                       dir.RoboSharpInfo = info;
-                       if (shouldCopyDir)
+                       if (CancellationTokenSource.IsCancellationRequested) break;
+
+                       if (f.RoboSharpFileInfo is null)
                        {
-                           if (!verbose && dir.IsLocatedOnSameDrive() && move && !dir.Destination.Exists)
+                           bool shouldCopy = evaluator.ShouldCopyFile(f, out var info);
+                           f.RoboSharpFileInfo = info;
+                           f.ShouldCopy = shouldCopy;
+                           f.RoboSharpDirectoryInfo = DirInfos.FirstOrDefault(o => o.Source.FullName == Path.GetDirectoryName(f.Source.FullName))?.RoboSharpInfo;
+                       }
+                       if (LastDirectoryInfo != f.RoboSharpDirectoryInfo)
+                       {
+                           resultsBuilder.AddDir(f.RoboSharpDirectoryInfo);
+                           LastDirectoryInfo = f.RoboSharpDirectoryInfo;
+                       }
+                       resultsBuilder.AddFile(f.RoboSharpFileInfo, listOnly);
+                       RaiseOnFileProcessed(f.RoboSharpFileInfo);
+
+                       //Copy or Move
+                       if (!listOnly)
+                       {
+                           if (f.IsExtra())
                            {
-                               DirCopiers.Add(dir);
+                               if (mirror | CopyOptions.Purge)
+                               {
+                                   f.Destination.Delete();
+                                   resultsBuilder.AddFilePurged(f.RoboSharpFileInfo);
+                               }
                            }
-                           else
+                           else if (!f.ShouldCopy)
                            {
-                               var dirFiles = dir.GetFileCopiersEnumerable();
-                               if (dirFiles.Any())
+                               resultsBuilder.AddFileSkipped(f.RoboSharpFileInfo);
+                           }
+                           else if (f.ShouldCopy)
+                           {
+                               f.FileCopyProgressUpdated += FileCopyProgressUpdated;
+                               f.FileCopyFailed += FileCopyFailed;
+                               f.FileCopyCompleted += FileCopyCompleted;
+                               resultsBuilder.ProgressEstimator.SetCopyOpStarted();
+                               Task copyTask;
+                               if (move)
+                                   copyTask = f.Move(true);
+                               else
+                                   copyTask = f.Copy(true);
+
+                               Task continuation = copyTask.ContinueWith(t =>
                                {
-                                   FileCopiers = FileCopiers.Concat(dirFiles).AsCachedEnumerable();
-                               }
-                               else if (includeEmptyDirs)
-                               {
-                                   EmptyDirsToCreate.Add(dir);
-                               }
-                               
-                               
-                               foreach (var d in dir.GetDirectoryCopiersEnumerable())
-                               {
-                                   if (CancellationTokenSource.IsCancellationRequested) break;
-                                   GetAllCopiers(d);
-                               }
+                                   f.FileCopyProgressUpdated -= FileCopyProgressUpdated;
+                                   f.FileCopyFailed -= FileCopyFailed;
+                                   f.FileCopyCompleted -= FileCopyCompleted;
+                               });
+                               CopyTasks.Add(continuation);
+                           }
+                       }
+
+                       //Wait Completion
+                       while (ShouldWait())
+                           await Task.Delay(100);
+
+                   
+                       if (!verbose && dir.IsLocatedOnSameDrive() && move && !dir.Destination.Exists)
+                       {
+                           DirsToMove.Add(dir);
+                       }
+                       else
+                       {
+                           var dirFiles = dir.GetFileCopiersEnumerable();
+                           if (dirFiles.Any())
+                           {
+                               FileCopiers = FileCopiers.Concat(dirFiles).AsCachedEnumerable();
+                           }
+                           else if (includeEmptyDirs)
+                           {
+                               EmptyDirs.Add(dir);
+                           }
+
+
+                           foreach (var d in dir.GetDirectoryCopiersEnumerable())
+                           {
+                               if (CancellationTokenSource.IsCancellationRequested) break;
+                               GetAllCopiers(d);
                            }
                        }
                    }
+
                    bool IsLessThanMaxDepth(int depth)
                    {
                        if (CopyOptions.Depth <= 0) return includeSubDirs;
@@ -152,10 +232,20 @@ namespace RFBCodeWorks.CachedRoboCopy
                    }
                }
 
-               List<Task> CopyTasks = new();
+
+
+
+
+
+
+
+
+
+
+
 
                // Empty Source Dirs
-               foreach (var d in EmptyDirsToCreate)
+               foreach (var d in EmptyDirs)
                {
                    if (CancellationTokenSource.IsCancellationRequested) break;
                    resultsBuilder.AddDir(d.RoboSharpInfo);
@@ -170,7 +260,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                    }
                }
 
-               foreach (var d in DirCopiers)
+               foreach (var d in DirsToMove)
                {
                    if (CancellationTokenSource.IsCancellationRequested) break;
                    resultsBuilder.AddDir(d.RoboSharpInfo);
@@ -183,71 +273,11 @@ namespace RFBCodeWorks.CachedRoboCopy
                }
                await  CopyTasks.WhenAll(CancellationTokenSource.Token);
 
-               // Loop through the copiers
-               foreach (var f in FileCopiers)
-               {
-                   if (CancellationTokenSource.IsCancellationRequested) break;
-
-                   if (f.RoboSharpFileInfo is null)
-                   {
-                       bool shouldCopy = evaluator.ShouldCopyFile(f, out var info);
-                       f.RoboSharpFileInfo = info;
-                       f.ShouldCopy = shouldCopy;
-                       f.RoboSharpDirectoryInfo = DirInfos.FirstOrDefault(o => o.Source.FullName == Path.GetDirectoryName(f.Source.FullName))?.RoboSharpInfo;
-                   }
-                   if (LastDirectoryInfo != f.RoboSharpDirectoryInfo)
-                   {
-                       resultsBuilder.AddDir(f.RoboSharpDirectoryInfo);
-                       LastDirectoryInfo = f.RoboSharpDirectoryInfo;
-                   }
-                   resultsBuilder.AddFile(f.RoboSharpFileInfo, listOnly);
-                   RaiseOnFileProcessed(f.RoboSharpFileInfo);
-
-                   //Copy or Move
-                   if (!listOnly)
-                   {
-                       if (f.IsExtra())
-                       {
-                           if (mirror | CopyOptions.Purge)
-                           {
-                               f.Destination.Delete();
-                               resultsBuilder.AddFilePurged(f.RoboSharpFileInfo);
-                           }
-                       }
-                       else if (!f.ShouldCopy)
-                       {
-                           resultsBuilder.AddFileSkipped(f.RoboSharpFileInfo);
-                       }
-                       else if (f.ShouldCopy)
-                       {
-                           f.FileCopyProgressUpdated += FileCopyProgressUpdated;
-                           f.FileCopyFailed += FileCopyFailed;
-                           f.FileCopyCompleted += FileCopyCompleted;
-                           resultsBuilder.ProgressEstimator.SetCopyOpStarted();
-                           Task copyTask;
-                           if (move)
-                               copyTask = f.Move(true);
-                           else
-                               copyTask = f.Copy(true);
-
-                           Task continuation = copyTask.ContinueWith(t =>
-                           {
-                               f.FileCopyProgressUpdated -= FileCopyProgressUpdated;
-                               f.FileCopyFailed -= FileCopyFailed;
-                               f.FileCopyCompleted -= FileCopyCompleted;
-                           });
-                           CopyTasks.Add(continuation);
-                       }
-                   }
-
-                   //Wait Completion
-                   while (ShouldWait())
-                       await Task.Delay(100);
-               }
+               
 
                if (CancellationTokenSource.IsCancellationRequested)
                {
-                   //foreach (var d in DirCopiers)
+                   //foreach (var d in DirsToMove)
                        //d.Cancel();
                    foreach (var f in FileCopiers.Where( o => o.IsCopying))
                        f.Cancel();
