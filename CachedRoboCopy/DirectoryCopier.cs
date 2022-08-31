@@ -326,7 +326,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             SubDirectories = GetDirectoryCopiersEnumerable();
         }
 
-        public void Purge(RetryOptions options)
+        public async Task Purge(RetryOptions options)
         {
             int attempts = 1;
             Source.Refresh();
@@ -342,8 +342,10 @@ namespace RFBCodeWorks.CachedRoboCopy
             catch(Exception e)
             {
                 if (attempts < options.RetryCount)
+                {
+                    await Task.Delay(new TimeSpan(hours: 0, minutes: 0, seconds: options.RetryWaitTime));
                     goto tryDelete;
-
+                }
             }
         }
 
