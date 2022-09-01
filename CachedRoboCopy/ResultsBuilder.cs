@@ -125,7 +125,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             ProgressEstimator.AddDir(file);
             //Check to log the directory listing
             if (!Command.LoggingOptions.NoDirectoryList)
-                WriteToLogs(file.ToString());
+                WriteToLogs(file.ToString(Command.LoggingOptions));
         }
 
         /// <summary>
@@ -140,7 +140,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <param name="info"></param>
         public void AddSystemMessage(string info) => WriteToLogs(info);
 
-        const string Divider = "-----------------------------------------------------------------";
+        const string Divider = "------------------------------------------------------------------------------";
 
         /// <summary>
         /// Write the header to the log
@@ -150,13 +150,36 @@ namespace RFBCodeWorks.CachedRoboCopy
             Command.LoggingOptions.DeleteLogFiles();
             if (!Command.LoggingOptions.NoJobHeader)
             {
+                WriteToLogs(Divider);
+                WriteToLogs("   RFBCodeWorks.CachedRoboCopy :: \t An alternative to RoboCopy");
+                WriteToLogs(Divider);
+                WriteToLogs("");
+                WriteToLogs($"  Started : {StartTime.ToLongDateString()} {StartTime.ToLongTimeString()}");
+                WriteToLogs($"   Source : {Command.CopyOptions.Source}");
+                WriteToLogs($"     Dest : {Command.CopyOptions.Source}");
+                WriteToLogs("");
+                if (Command.CopyOptions.FileFilter.Any())
+                    WriteToLogs($"    Files : {String.Concat(Command.CopyOptions.FileFilter.Select(filter => filter + " "))}");
+                else
+                    WriteToLogs($"    Files : *.*");
+
+                if (Command.SelectionOptions.ExcludedFiles.Any())
+                {
+                    WriteToLogs($"    Excluded Files : {String.Concat(Command.SelectionOptions.ExcludedFiles.Select(filter => filter + " "))}");
+                    WriteToLogs("");
+                }
+
+                if (Command.SelectionOptions.ExcludedDirectories.Any())
+                {
+                    WriteToLogs($"    Excluded Files : {String.Concat(Command.SelectionOptions.ExcludedDirectories.Select(filter => filter + " "))}");
+                    WriteToLogs("");
+                }
+
+                WriteToLogs("");
+                WriteToLogs($"  Options : {Command.CommandOptions}");
                 WriteToLogs("");
                 WriteToLogs(Divider);
-                WriteToLogs("New Custom RoboCommand");
                 WriteToLogs("");
-                WriteToLogs($"Source: {Command.CopyOptions.Source}");
-                WriteToLogs($"Destination: {Command.CopyOptions.Source}");
-                WriteToLogs(Divider);
             }
         }
 
@@ -165,8 +188,33 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// </summary>
         protected virtual void CreateSummary()
         {
-            string SummaryLine() => string.Format(@"{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}", @"Statistic Type:", "Total", "Copied", "Skipped", "Extras", "Failed", "Mismatch");
-            string Tabulator(string name, IStatistic stat) => string.Format(@"{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}", name, stat.Total, stat.Copied, stat.Skipped, stat.Extras, stat.Failed, stat.Mismatch);
+            int[] GetColumnSizes() 
+            {
+                var sizes = new List<int>();
+                int GetColumnSize(string name, long bytes, long files, long dirs)
+                {
+                    int GetLargerValue(int length1, int length2) => length1 > length2 ? length1 : length2;
+                    int length = GetLargerValue(name.Length, bytes.ToString().Length);
+                    length = GetLargerValue(length, files.ToString().Length);
+                    return GetLargerValue(length, dirs.ToString().Length);
+                }
+                sizes.Add(GetColumnSize("Total", ProgressEstimator.BytesStatistic.Total, ProgressEstimator.FilesStatistic.Total, ProgressEstimator.DirectoriesStatistic.Total));
+                sizes.Add(GetColumnSize("Copied", ProgressEstimator.BytesStatistic.Copied, ProgressEstimator.FilesStatistic.Copied, ProgressEstimator.DirectoriesStatistic.Copied));
+                sizes.Add(GetColumnSize("Skipped", ProgressEstimator.BytesStatistic.Skipped, ProgressEstimator.FilesStatistic.Skipped, ProgressEstimator.DirectoriesStatistic.Skipped));
+                sizes.Add(GetColumnSize("Mismatch", ProgressEstimator.BytesStatistic.Mismatch, ProgressEstimator.FilesStatistic.Mismatch, ProgressEstimator.DirectoriesStatistic.Mismatch));
+                sizes.Add(GetColumnSize("Failed", ProgressEstimator.BytesStatistic.Failed, ProgressEstimator.FilesStatistic.Failed, ProgressEstimator.DirectoriesStatistic.Failed));
+                sizes.Add(GetColumnSize("Extras", ProgressEstimator.BytesStatistic.Extras, ProgressEstimator.FilesStatistic.Extras, ProgressEstimator.DirectoriesStatistic.Extras));
+                return sizes.ToArray();
+            }
+            string RightAlign(int columnSize, string value)
+            {
+                return value.PadLeft(columnSize);
+            }
+            string Align(int columnSize, long value) => RightAlign(columnSize, value.ToString());
+
+            int[] ColSizes = GetColumnSizes();
+            string SummaryLine() => string.Format("\t{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}", "\t", RightAlign(ColSizes[0],"Total"), RightAlign(ColSizes[1], "Copied"), RightAlign(ColSizes[2], "Skipped"), RightAlign(ColSizes[3], "Mismatch"), RightAlign(ColSizes[4], "FAILED"), RightAlign(ColSizes[5], "Extras"));
+            string Tabulator(string name, IStatistic stat) => string.Format("\t{0} : {1}\t{2}\t{3}\t{4}\t{5}\t{6}", name, Align(ColSizes[0], stat.Total), Align(ColSizes[1], stat.Copied), Align(ColSizes[2], stat.Skipped), Align(ColSizes[3], stat.Mismatch), Align(ColSizes[4], stat.Failed), Align(ColSizes[5], stat.Extras));
 
             if (IsSummaryCreated) return;
             EndTime = DateTime.Now;
@@ -176,16 +224,17 @@ namespace RFBCodeWorks.CachedRoboCopy
                 ProgressEstimator.FinalizeResults();
                 WriteToLogs("");
                 WriteToLogs(Divider);
-                WriteToLogs($"Start Time: {StartTime}");
-                WriteToLogs($"End Time: {EndTime}");
                 WriteToLogs("");
                 WriteToLogs(SummaryLine());
-                WriteToLogs(Tabulator("Directories", ProgressEstimator.DirectoriesStatistic));
+                WriteToLogs(Tabulator(" Dirs", ProgressEstimator.DirectoriesStatistic));
                 WriteToLogs(Tabulator("Files", ProgressEstimator.FilesStatistic));
                 WriteToLogs(Tabulator("Bytes", ProgressEstimator.BytesStatistic));
                 WriteToLogs("");
-                WriteToLogs($"{AverageSpeed}");
-                WriteToLogs(Divider);
+                WriteToLogs($"\tEnded : {EndTime.ToLongDateString()} {EndTime.ToLongTimeString()}");
+                TimeSpan totalTime = EndTime - StartTime;
+                WriteToLogs($"\tTotal Time: {totalTime.Hours} hours, {totalTime.Minutes} minutes, {totalTime.Seconds}.{totalTime.Milliseconds} seconds");
+                if (!Command.LoggingOptions.ListOnly) WriteToLogs($"\t{AverageSpeed}");
+                
             }
             IsSummaryCreated = true;
         }
