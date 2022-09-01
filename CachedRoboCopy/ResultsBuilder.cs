@@ -150,7 +150,6 @@ namespace RFBCodeWorks.CachedRoboCopy
             Command.LoggingOptions.DeleteLogFiles();
             if (!Command.LoggingOptions.NoJobHeader)
             {
-                ProgressEstimator.FinalizeResults();
                 WriteToLogs("");
                 WriteToLogs(Divider);
                 WriteToLogs("New Custom RoboCommand");

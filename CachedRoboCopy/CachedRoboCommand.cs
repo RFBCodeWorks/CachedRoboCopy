@@ -120,6 +120,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                List<FileCopier> fileCopiers = new();
 
                await Dig(TopLevelDirectory);
+               await Task.Delay(100);
 
                async Task Dig(DirectoryCopier dir, int currentDepth = 0)
                {
@@ -299,7 +300,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                        }
 
 
-                       if (listOnly)
+                       if (listOnly) // Do I need this?
                        {
                            RaiseDirProcessed(d); // Rely on the ResultsBuilder for accurate counting
                        }

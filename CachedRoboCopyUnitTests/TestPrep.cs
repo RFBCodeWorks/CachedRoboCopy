@@ -56,7 +56,6 @@ namespace RFBCodeWorks.CachedRoboCopy.Tests
             results.Add(await Test_Setup.RunTest(roboCommand));
             if (CleanBetweenRuns) CleanDestination();
             results.Add(await Test_Setup.RunTest(cachedRoboCommand));
-            Assert.AreEqual(results[0].Results.FilesStatistic.Total, results[1].Results.FilesStatistic.Total);
             return results.ToArray();
         }
 
