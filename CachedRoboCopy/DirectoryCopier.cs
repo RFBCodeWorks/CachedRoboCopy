@@ -163,6 +163,11 @@ namespace RFBCodeWorks.CachedRoboCopy
         public DirectoryInfo Destination { get; }
 
         /// <summary>
+        /// The directory name
+        /// </summary>
+        public string Name => Source.Name;
+
+        /// <summary>
         /// The <see cref="ProcessedFileInfo"/> object pertaining to this copier
         /// </summary>
         public ProcessedFileInfo RoboSharpInfo { get; set; }

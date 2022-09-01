@@ -14,10 +14,10 @@ namespace RFBCodeWorks.CachedRoboCopy.Tests
     public class CachedRoboCopyTests
     {
         [TestMethod()]
-        [DataRow( data1: new object[] { CopyActionFlags.Default, SelectionFlags.Default, LoggingActionFlags.IncludeFullPathNames }, DisplayName = "Defaults")]
+        [DataRow( data1: new object[] { CopyActionFlags.Default, SelectionFlags.Default, LoggingActionFlags.Default}, DisplayName = "Defaults")]
         [DataRow(data1: new object[] { CopyActionFlags.CopySubdirectories, SelectionFlags.Default, LoggingActionFlags.Default }, DisplayName = "Subdirectories")]
         [DataRow(data1: new object[] { CopyActionFlags.CopySubdirectoriesIncludingEmpty, SelectionFlags.Default, LoggingActionFlags.Default }, DisplayName = "EmptySubdirectories")]
-        [DataRow(data1: new object[] { CopyActionFlags.Mirror, SelectionFlags.Default, LoggingActionFlags.Default }, DisplayName = "EmptySubdirectories")]
+        [DataRow(data1: new object[] { CopyActionFlags.Mirror, SelectionFlags.Default, LoggingActionFlags.Default }, DisplayName = "Mirror")]
         public void CopyTest(object[] flags) //CopyActionFlags copyAction, SelectionFlags selectionFlags, LoggingActionFlags loggingAction
         {
             CopyActionFlags copyAction = (CopyActionFlags)flags[0];

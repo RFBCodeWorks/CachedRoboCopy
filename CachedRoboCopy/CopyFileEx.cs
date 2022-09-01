@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -175,15 +176,57 @@ namespace RFBCodeWorks.CachedRoboCopy.CopyFileEx
         /// <inheritdoc cref="CopyFileEx"/>
         public static bool CopyFile(string sourceFile, string destFile, CopyProgressRoutine CopyProgressHandler, ref bool pbCancel, CopyFileFlags flags = CopyFileFlags.COPY_FILE_RESTARTABLE)
         {
-            return CopyFileEx(sourceFile, destFile, CopyProgressHandler ?? DefaultHandler, IntPtr.Zero, ref pbCancel, (int)flags);
+            return RunCopyFile(sourceFile, destFile, CopyProgressHandler, ref pbCancel, flags);
         }
 
         /// <inheritdoc cref="CopyFileEx"/>
         public static bool CopyFileIfMissing(string sourceFile, string destFile, CopyProgressRoutine CopyProgressHandler, ref bool pbCancel, CopyFileFlags flags = CopyFileFlags.COPY_FILE_RESTARTABLE | CopyFileFlags.COPY_FILE_FAIL_IF_EXISTS)
         {
-            return CopyFileEx(sourceFile, destFile, CopyProgressHandler ?? DefaultHandler, IntPtr.Zero, ref pbCancel, (int)flags);
+            return RunCopyFile(sourceFile, destFile, CopyProgressHandler, ref pbCancel, flags);
+        }
+
+        /// <summary>
+        /// Runs the copy task, marshals the error, then returns the result
+        /// </summary>
+        private static bool RunCopyFile(string sourceFile, string destFile, CopyProgressRoutine CopyProgressHandler, ref bool pbCancel, CopyFileFlags flags)
+        {
+            bool returnVal = CopyFileEx(sourceFile, destFile, CopyProgressHandler ?? DefaultHandler, IntPtr.Zero, ref pbCancel, (int)flags);
+
+            //https://docs.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.dllimportattribute.setlasterror?view=net-6.0
+            int errorCode = 0;
+#if Net6OrGreater   // VS2019 doesn't support Net6, but this will be required for future compatibility
+            errorCode = Marshal.GetLastPInvokeError();
+#else
+            // Get the last error and display it.
+            errorCode = Marshal.GetLastWin32Error();
+#endif
+            ThrowWin32Error(errorCode, sourceFile, destFile);
+            return returnVal;
         }
 
         #endregion
+
+        /// <remarks>
+        /// <see href="https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/18d8fbe8-a967-4f1c-ae50-99ca8e491d2d"/>
+        /// </remarks>
+        public static void ThrowWin32Error(int errorCode, string sourceFile, string destFile)
+        {
+            switch(errorCode)
+            {
+                case 0: return;
+                case 1: throw new InvalidOperationException("Invalid Operation");
+                case 2: throw new FileNotFoundException(message: "Unable to locate the file", fileName: sourceFile);
+                case 3: throw new DirectoryNotFoundException("Unable to locate the directory: " + Path.GetDirectoryName(destFile));
+                case 4: throw new FileNotFoundException("Unable to open the file: ", sourceFile);
+                case 8: throw new InsufficientMemoryException();
+                case 0x0000000E: throw new InsufficientMemoryException("Not enough storage is available to complete this operation.");
+                case 0x0000000F: throw new DriveNotFoundException("The system cannot find the drive specified.");
+                case 0x00000013: throw new UnauthorizedAccessException("The media is write-protected.");
+                case 0x00000014: throw new DriveNotFoundException("The system cannot find the device specified.");
+                case 0x00000015: throw new Exception("The device is not ready.");
+                case 0x00000027: throw new Exception("The destination disk is full: " + Path.GetPathRoot(destFile));
+                default: throw new Exception(@$"Error Code Reported by CopyFileEx: {errorCode}, see https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/18d8fbe8-a967-4f1c-ae50-99ca8e491d2d for details");
+            };
+    }
     }
 }

@@ -346,6 +346,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             Task<bool> copyTask = new Task<bool>(() =>
             {
                 bool pbCancel = false;
+                Directory.CreateDirectory(Destination.DirectoryName);
                 return FileCopyEx.CopyFile(Source.FullName, Destination.FullName, CopyProgressHandler, ref pbCancel, CopyFileFlags.COPY_FILE_RESTARTABLE);
             }, CancellationSource.Token, TaskCreationOptions.LongRunning);
 
@@ -456,6 +457,56 @@ namespace RFBCodeWorks.CachedRoboCopy
         }
 
         /// <summary>
+        /// Copies the file, trying multiple times per the <paramref name="options"/>
+        /// </summary>
+        /// <inheritdoc cref="Copy(bool)"/>
+        public async Task<bool> Copy(RetryOptions options)
+        {
+            if (disposedValue) throw new ObjectDisposedException(nameof(FileCopier));
+            int tries = 0;
+            TryAgain:
+            try
+            {
+                tries++;
+                return await Copy(true);
+            }
+            catch(Exception e)
+            {
+                if (tries < options.RetryCount)
+                {
+                    await Task.Delay(options.GetWaitTime());
+                    goto TryAgain;
+                }
+                throw e;
+            }
+        }
+
+        /// <summary>
+        /// Moves the file, trying multiple times per the <paramref name="options"/>
+        /// </summary>
+        /// <inheritdoc cref="Move(bool)"/>
+        public async Task<bool> Move(RetryOptions options)
+        {
+            if (disposedValue) throw new ObjectDisposedException(nameof(FileCopier));
+            int tries = 0;
+        TryAgain:
+            try
+            {
+                tries++;
+                return await Move(true);
+            }
+            catch (Exception e)
+            {
+                if (tries < options.RetryCount)
+                {
+                    await Task.Delay(options.GetWaitTime());
+                    goto TryAgain;
+                }
+                throw e;
+            }
+        }
+
+        /// <summary>
         /// Move the file
         /// </summary>
         /// <inheritdoc cref="RunCopyOperation"/>
@@ -529,6 +580,8 @@ namespace RFBCodeWorks.CachedRoboCopy
                 return wasSuccess;
             }
         }
+
+
 
         /// <inheritdoc/>
         protected virtual void Dispose(bool disposing)

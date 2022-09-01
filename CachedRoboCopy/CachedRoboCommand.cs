@@ -164,9 +164,9 @@ namespace RFBCodeWorks.CachedRoboCopy
                                    resultsBuilder.ProgressEstimator.SetCopyOpStarted(); // Mark as starting the copy operation
                                    Task copyTask;
                                    if (move)
-                                       copyTask = f.Move(true);
+                                       copyTask = f.Move(RetryOptions);
                                    else
-                                       copyTask = f.Copy(true);
+                                       copyTask = f.Copy(RetryOptions);
 
                                    Task continuation = copyTask.ContinueWith(t =>
                                    {
@@ -219,49 +219,49 @@ namespace RFBCodeWorks.CachedRoboCopy
                    //await CopyTasks.WhenAll(CancellationTokenSource.Token);
 
                    // Process the Directories
-                   foreach (var d in dir.SubDirectories)
+                   if (CanDigDeeper())
                    {
-                       if (CancellationTokenSource.IsCancellationRequested) break;
+                       foreach (var d in dir.SubDirectories)
+                       {
+                           if (CancellationTokenSource.IsCancellationRequested) break;
 
-                       // Get the ProcessedFileInfo object
-                       if (d.RoboSharpInfo is null)
-                       {
-                           evaluator.ShouldCopyDir(d, out var info, out var @class, out bool Exjunct, out bool ExNamed);
-                           d.RoboSharpInfo = info;
-                           d.DirectoryClass = @class;
-                           d.ShouldExclude_JunctionDirectory = Exjunct;
-                           d.ShouldExclude_NamedDirectory = ExNamed;
-                       }
+                           // Get the ProcessedFileInfo object
+                           if (d.RoboSharpInfo is null)
+                           {
+                               evaluator.ShouldCopyDir(d, out var info, out var @class, out bool Exjunct, out bool ExNamed);
+                               d.RoboSharpInfo = info;
+                               d.DirectoryClass = @class;
+                               d.ShouldExclude_JunctionDirectory = Exjunct;
+                               d.ShouldExclude_NamedDirectory = ExNamed;
+                           }
 
-                       // If the directory doens't exist in the source
-                       if (d.IsExtra)
-                       {
-                           if (logExtras)
+                           // If the directory doens't exist in the source
+                           if (d.IsExtra)
                            {
-                               RaiseDirProcessed(d);
+                               if (logExtras)
+                               {
+                                   RaiseDirProcessed(d);
+                               }
+                               if (purgeExtras)
+                               {
+                                   await d.Purge(RetryOptions);
+                               }
+                               //else if (false)  // If not purging, decide if we need to dig into the extra subdirectories
+                               //{
+                               //    await Dig(d, currentDepth + 1);
+                               //}
                            }
-                           if (purgeExtras)
+                           else if (d.ShouldExclude_NamedDirectory | d.ShouldExclude_JunctionDirectory)
                            {
-                               await d.Purge(RetryOptions);
+                               if (verbose)
+                                   RaiseDirProcessed(d);
                            }
-                           //else if (false)  // If not purging, decide if we need to dig into the extra subdirectories
-                           //{
-                           //    await Dig(d, currentDepth + 1);
-                           //}
-                       }
-                       else if (d.ShouldExclude_NamedDirectory | d.ShouldExclude_JunctionDirectory)
-                       {
-                           if (verbose)
-                               RaiseDirProcessed(d);
-                       }
-                       else if (d.IsLonely && SelectionOptions.ExcludeLonely) //Lonely directories are ignored under this condition - don't even log them
-                       {
-                           if (verbose)
-                               RaiseDirProcessed(d);
-                       }
-                       else // Check to dig into the directory
-                       {
-                           if (CanDigDeeper())
+                           else if (d.IsLonely && SelectionOptions.ExcludeLonely) //Lonely directories are ignored under this condition - don't even log them
+                           {
+                               if (verbose)
+                                   RaiseDirProcessed(d);
+                           }
+                           else // Check to dig into the directory
                            {
                                if (!listOnly)
                                {
@@ -275,23 +275,9 @@ namespace RFBCodeWorks.CachedRoboCopy
                                    if (d.Source.IsEmpty())
                                        d.Source.Delete();
                                }
-
                            }
                        }
-
-
-                       if (listOnly) // Do I need this?
-                       {
-                           RaiseDirProcessed(d); // Rely on the ResultsBuilder for accurate counting
-                       }
-                       else
-                       {
-
-                       }
-
-
                    }
-
                    #region < Dir Copier Helper Routines >
 
                    //Adds the file to the results builder and raises the event

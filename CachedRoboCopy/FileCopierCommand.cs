@@ -158,9 +158,9 @@ namespace RFBCodeWorks.CachedRoboCopy
                     {
                         resultsBuilder.ProgressEstimator.SetCopyOpStarted();
                         if (!CopyOptions.Mirror && (CopyOptions.MoveFiles | CopyOptions.MoveFilesAndDirectories))
-                            copyTask = copier.Move(true);
+                            copyTask = copier.Move(RetryOptions);
                         else
-                            copyTask = copier.Copy(true);
+                            copyTask = copier.Copy(RetryOptions);
                     }
                     else
                         copyTask = Task.FromResult(false);
