@@ -25,11 +25,12 @@ namespace RFBCodeWorks.CachedRoboCopy.Tests
         }
 
         /// <inheritdoc cref="Test_Setup.GenerateCommand(bool, bool)"/>
-        public static RoboCommand GetRoboCommand(bool useLargerFileSet, CopyOptions.CopyActionFlags copyActionFlags, SelectionOptions.SelectionFlags selectionFlags)
+        public static RoboCommand GetRoboCommand(bool useLargerFileSet, CopyOptions.CopyActionFlags copyActionFlags, SelectionOptions.SelectionFlags selectionFlags, LoggingOptions.LoggingActionFlags loggingAction)
         {
             var cmd = Test_Setup.GenerateCommand(useLargerFileSet, false);
             cmd.CopyOptions.ApplyActionFlags(copyActionFlags);
             cmd.SelectionOptions.ApplySelectionFlags(selectionFlags);
+            cmd.LoggingOptions.ApplyLoggingFlags(loggingAction);
             return cmd;
         }
 
