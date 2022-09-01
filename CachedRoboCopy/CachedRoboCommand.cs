@@ -29,10 +29,12 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary>
         /// Create a new CachedRoboCommand
         /// </summary>
-        /// <inheritdoc cref="AbstractCustomIRoboCommand.AbstractCustomIRoboCommand(string, string, CopyOptions.CopyActionFlags, SelectionOptions.SelectionFlags)"/>
+        /// <inheritdoc cref="AbstractCustomIRoboCommand.AbstractCustomIRoboCommand(string, string, CopyOptions.CopyActionFlags, SelectionOptions.SelectionFlags, LoggingOptions.LoggingActionFlags)"/>
         public CachedRoboCommand(string source, string destination, 
             CopyOptions.CopyActionFlags copyActionFlags = CopyOptions.CopyActionFlags.Default,
-            SelectionOptions.SelectionFlags selectionFlags = SelectionOptions.SelectionFlags.Default) : base(source, destination, copyActionFlags, selectionFlags) 
+            SelectionOptions.SelectionFlags selectionFlags = SelectionOptions.SelectionFlags.Default,
+            LoggingOptions.LoggingActionFlags loggingFlags = LoggingOptions.LoggingActionFlags.RoboSharpDefault
+            ) : base(source, destination, copyActionFlags, selectionFlags, loggingFlags) 
         { 
 
         }
