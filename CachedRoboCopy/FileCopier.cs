@@ -460,7 +460,12 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// Copies the file, trying multiple times per the <paramref name="options"/>
         /// </summary>
         /// <inheritdoc cref="Copy(bool)"/>
-        public async Task<bool> Copy(RetryOptions options)
+        /// <param name="options">retry options</param>
+        /// <param name="SetAttributes">
+        /// Action that will set the file attributes to to the file after it has been copied/moved
+        /// <br/> For example: <see cref="SourceDestinationEvaluator.ApplyAttributes(FileInfo)"/>
+        /// </param>
+        public async Task<bool> Copy(RetryOptions options, Action<FileInfo> SetAttributes = null)
         {
             if (disposedValue) throw new ObjectDisposedException(nameof(FileCopier));
             int tries = 0;
@@ -468,7 +473,10 @@ namespace RFBCodeWorks.CachedRoboCopy
             try
             {
                 tries++;
-                return await Copy(true);
+                bool copied = await Copy(true);
+                if (copied && SetAttributes != null)
+                    SetAttributes(Destination);
+                return copied;
             }
             catch(Exception e)
             {
@@ -485,7 +493,8 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// Moves the file, trying multiple times per the <paramref name="options"/>
         /// </summary>
         /// <inheritdoc cref="Move(bool)"/>
-        public async Task<bool> Move(RetryOptions options)
+        /// <inheritdoc cref="Copy(RetryOptions, Action{FileInfo})"/>
+        public async Task<bool> Move(RetryOptions options, Action<FileInfo> SetAttributes = null)
         {
             if (disposedValue) throw new ObjectDisposedException(nameof(FileCopier));
             int tries = 0;
@@ -493,7 +502,10 @@ namespace RFBCodeWorks.CachedRoboCopy
             try
             {
                 tries++;
-                return await Move(true);
+                bool moved = await Move(true);
+                if (moved && SetAttributes != null)
+                    SetAttributes(Destination);
+                return moved;
             }
             catch (Exception e)
             {
