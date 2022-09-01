@@ -88,5 +88,51 @@ namespace RFBCodeWorks.CachedRoboCopy.Tests
             }
         }
 
+        [TestMethod()]
+        [DataRow(data1: new object[] { CopyActionFlags.Default, SelectionFlags.Default, LoggingActionFlags.Default }, DisplayName = "Defaults")]
+        [DataRow(data1: new object[] { CopyActionFlags.CopySubdirectories, SelectionFlags.Default, LoggingActionFlags.Default }, DisplayName = "Subdirectories")]
+        [DataRow(data1: new object[] { CopyActionFlags.CopySubdirectoriesIncludingEmpty, SelectionFlags.Default, LoggingActionFlags.Default }, DisplayName = "EmptySubdirectories")]
+        [DataRow(data1: new object[] { CopyActionFlags.Mirror, SelectionFlags.Default, LoggingActionFlags.Default }, DisplayName = "Mirror")]
+        public void FileInclusionTest(object[] flags) //CopyActionFlags copyAction, SelectionFlags selectionFlags, LoggingActionFlags loggingAction
+        {
+            CopyActionFlags copyAction = (CopyActionFlags)flags[0];
+            SelectionFlags selectionFlags = (SelectionFlags)flags[1];
+            LoggingActionFlags loggingAction = (LoggingActionFlags)flags[2] | LoggingActionFlags.ReportExtraFiles;
+
+            var rc = TestPrep.GetRoboCommand(false, copyAction, selectionFlags, loggingAction);
+            var crc = TestPrep.GetCachedRoboCopy(rc);
+            rc.LoggingOptions.ListOnly = true;
+            rc.CopyOptions.FileFilter = new string[] { "*.txt" };
+            var results1 = TestPrep.RunTests(rc, crc, false).Result;
+            AssertResults(results1, rc.LoggingOptions.ListOnly);
+
+            rc.LoggingOptions.ListOnly = false;
+            var results2 = TestPrep.RunTests(rc, crc, true).Result;
+            AssertResults(results2, rc.LoggingOptions.ListOnly);
+        }
+
+        [TestMethod()]
+        [DataRow(data1: new object[] { CopyActionFlags.Default, SelectionFlags.Default, LoggingActionFlags.Default }, DisplayName = "Defaults")]
+        [DataRow(data1: new object[] { CopyActionFlags.CopySubdirectories, SelectionFlags.Default, LoggingActionFlags.Default }, DisplayName = "Subdirectories")]
+        [DataRow(data1: new object[] { CopyActionFlags.CopySubdirectoriesIncludingEmpty, SelectionFlags.Default, LoggingActionFlags.Default }, DisplayName = "EmptySubdirectories")]
+        [DataRow(data1: new object[] { CopyActionFlags.Mirror, SelectionFlags.Default, LoggingActionFlags.Default }, DisplayName = "Mirror")]
+        public void FileExclusionTest(object[] flags) //CopyActionFlags copyAction, SelectionFlags selectionFlags, LoggingActionFlags loggingAction
+        {
+            CopyActionFlags copyAction = (CopyActionFlags)flags[0];
+            SelectionFlags selectionFlags = (SelectionFlags)flags[1];
+            LoggingActionFlags loggingAction = (LoggingActionFlags)flags[2];
+
+            var rc = TestPrep.GetRoboCommand(false, copyAction, selectionFlags, loggingAction);
+            var crc = TestPrep.GetCachedRoboCopy(rc);
+            rc.LoggingOptions.ListOnly = true;
+            rc.SelectionOptions.ExcludedFiles.Add("*.txt");
+            var results1 = TestPrep.RunTests(rc, crc, false).Result;
+            AssertResults(results1, rc.LoggingOptions.ListOnly);
+
+            rc.LoggingOptions.ListOnly = false;
+            var results2 = TestPrep.RunTests(rc, crc, true).Result;
+            AssertResults(results2, rc.LoggingOptions.ListOnly);
+        }
+
     }
 }

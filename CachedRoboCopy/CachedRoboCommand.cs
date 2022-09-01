@@ -94,7 +94,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             bool purgeExtras = !SelectionOptions.ExcludeExtra && (mirror | CopyOptions.Purge);
             bool verbose = LoggingOptions.VerboseOutput;
             bool logExtras = verbose || !SelectionOptions.ExcludeExtra | LoggingOptions.ReportExtraFiles;
-
+            bool logSkipped = verbose | LoggingOptions.ReportExtraFiles;
 
             var RunTask = Task.Factory.StartNew(async () =>
            {
@@ -113,7 +113,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                    if (!listOnly) dir.Destination.Create();
 
                    //Process all files in this directory
-                   foreach (var f in dir.Files)
+                   foreach (var f in evaluator.FilterFilePairs(dir.Files))
                    {
                        if (CancellationTokenSource.IsCancellationRequested) break;
 
@@ -126,11 +126,10 @@ namespace RFBCodeWorks.CachedRoboCopy
                            f.RoboSharpDirectoryInfo = dir.RoboSharpInfo;
                        }
 
-
                        //Special handling for Extra files ( Purge or ignore )
                        if (f.IsExtra())
                        {
-                           if (logExtras)
+                           if (logExtras & !purgeExtras)
                            {
                                RaiseFileProcessed(f);
                            }
@@ -147,38 +146,42 @@ namespace RFBCodeWorks.CachedRoboCopy
                        //Copy or Move
                        else
                        {
-                           RaiseFileProcessed(f);
                            if (!f.ShouldCopy)
                            {
-                               resultsBuilder.AddFileSkipped(f.RoboSharpFileInfo);
+                               if (logSkipped)
+                                   resultsBuilder.AddFileSkipped(f.RoboSharpFileInfo);
                            }
-                           else if (f.ShouldCopy && !listOnly)
+                           else
                            {
-                               if (CopyOptions.CreateDirectoryAndFileTree)
+                               RaiseFileProcessed(f); // Log File Copied
+                               if (!listOnly)
                                {
-                                   if (!f.Destination.Exists) f.Destination.Create().Close(); // This should create a 0-length file at this location
-                                   resultsBuilder.AddFileCopied(f.RoboSharpFileInfo);
-                               }
-                               else
-                               {
-                                   fileCopiers.Add(f);
-                                   f.FileCopyProgressUpdated += FileCopyProgressUpdated;
-                                   f.FileCopyFailed += FileCopyFailed;
-                                   f.FileCopyCompleted += FileCopyCompleted;
-                                   resultsBuilder.ProgressEstimator.SetCopyOpStarted(); // Mark as starting the copy operation
-                                   Task copyTask;
-                                   if (move)
-                                       copyTask = f.Move(RetryOptions, evaluator.ApplyAttributes);
-                                   else
-                                       copyTask = f.Copy(RetryOptions, evaluator.ApplyAttributes);
-
-                                   Task continuation = copyTask.ContinueWith(t =>
+                                   if (CopyOptions.CreateDirectoryAndFileTree)
                                    {
-                                       f.FileCopyProgressUpdated -= FileCopyProgressUpdated;
-                                       f.FileCopyFailed -= FileCopyFailed;
-                                       f.FileCopyCompleted -= FileCopyCompleted;
-                                   });
-                                   CopyTasks.Add(continuation);
+                                       if (!f.Destination.Exists) f.Destination.Create().Close(); // This should create a 0-length file at this location
+                                       resultsBuilder.AddFileCopied(f.RoboSharpFileInfo);
+                                   }
+                                   else
+                                   {
+                                       fileCopiers.Add(f);
+                                       f.FileCopyProgressUpdated += FileCopyProgressUpdated;
+                                       f.FileCopyFailed += FileCopyFailed;
+                                       f.FileCopyCompleted += FileCopyCompleted;
+                                       resultsBuilder.ProgressEstimator.SetCopyOpStarted(); // Mark as starting the copy operation
+                                       Task copyTask;
+                                       if (move)
+                                           copyTask = f.Move(RetryOptions, evaluator.ApplyAttributes);
+                                       else
+                                           copyTask = f.Copy(RetryOptions, evaluator.ApplyAttributes);
+
+                                       Task continuation = copyTask.ContinueWith(t =>
+                                       {
+                                           f.FileCopyProgressUpdated -= FileCopyProgressUpdated;
+                                           f.FileCopyFailed -= FileCopyFailed;
+                                           f.FileCopyCompleted -= FileCopyCompleted;
+                                       });
+                                       CopyTasks.Add(continuation);
+                                   }
                                }
                            }
                        }

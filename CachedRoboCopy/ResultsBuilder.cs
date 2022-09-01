@@ -95,7 +95,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         public virtual void AddFileCopied(ProcessedFileInfo file)
         {
             ProgressEstimator.AddFileCopied(file);
-            LogFileInfo(file, "-- OK");
+            LogFileInfo(file, " -- OK");
         }
 
         /// <summary>
@@ -105,7 +105,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         public virtual void AddFileSkipped(ProcessedFileInfo file)
         {
             ProgressEstimator.PerformByteCalc(file, WhereToAdd.Skipped);
-            LogFileInfo(file, "-- Skipped");
+            LogFileInfo(file, " -- Skipped");
         }
 
         /// <summary>
@@ -115,7 +115,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         public virtual void AddFilePurged(ProcessedFileInfo file)
         {
             ProgressEstimator.PerformByteCalc(file, WhereToAdd.Extra);
-            LogFileInfo(file, "-- Purged");
+            LogFileInfo(file, " -- Purged");
         }
 
         private void LogFileInfo(ProcessedFileInfo file, string suffix = "")
@@ -164,6 +164,13 @@ namespace RFBCodeWorks.CachedRoboCopy
         const string Divider = "------------------------------------------------------------------------------";
 
         /// <summary>
+        /// RoboCopy uses padding of 9 on the header to align things
+        /// </summary>
+        /// <param name="RowName"></param>
+        /// <returns></returns>
+        protected string PadHeader(string RowName) => RowName.PadLeft(9);
+
+        /// <summary>
         /// Write the header to the log
         /// </summary>
         protected virtual void CreateHeader()
@@ -171,33 +178,35 @@ namespace RFBCodeWorks.CachedRoboCopy
             Command.LoggingOptions.DeleteLogFiles();
             if (!Command.LoggingOptions.NoJobHeader)
             {
+                
                 WriteToLogs(Divider);
                 WriteToLogs("   RFBCodeWorks.CachedRoboCopy :: \t An alternative to RoboCopy");
                 WriteToLogs(Divider);
                 WriteToLogs("");
-                WriteToLogs($"  Started : {StartTime.ToLongDateString()} {StartTime.ToLongTimeString()}");
-                WriteToLogs($"   Source : {Command.CopyOptions.Source}");
-                WriteToLogs($"     Dest : {Command.CopyOptions.Source}");
+                WriteToLogs($"{PadHeader("Started")} : {StartTime.ToLongDateString()} {StartTime.ToLongTimeString()}");
+                WriteToLogs($"{PadHeader("Source")} : {Command.CopyOptions.Source}");
+                WriteToLogs($"{PadHeader("Dest")} : {Command.CopyOptions.Source}");
                 WriteToLogs("");
                 if (Command.CopyOptions.FileFilter.Any())
-                    WriteToLogs($"    Files : {String.Concat(Command.CopyOptions.FileFilter.Select(filter => filter + " "))}");
+                    WriteToLogs($"{PadHeader("Files")} : {String.Concat(Command.CopyOptions.FileFilter.Select(filter => filter + " "))}");
                 else
-                    WriteToLogs($"    Files : *.*");
-
+                    WriteToLogs($"{PadHeader("Files")} : *.*");
+                WriteToLogs("");
+                
                 if (Command.SelectionOptions.ExcludedFiles.Any())
                 {
-                    WriteToLogs($"    Excluded Files : {String.Concat(Command.SelectionOptions.ExcludedFiles.Select(filter => filter + " "))}");
+                    WriteToLogs($"{PadHeader("Exc Files")} : {String.Concat(Command.SelectionOptions.ExcludedFiles.Select(filter => filter + " "))}");
                     WriteToLogs("");
                 }
 
                 if (Command.SelectionOptions.ExcludedDirectories.Any())
                 {
-                    WriteToLogs($"    Excluded Files : {String.Concat(Command.SelectionOptions.ExcludedDirectories.Select(filter => filter + " "))}");
+                    WriteToLogs($"{PadHeader("Exc Dirs")} : {String.Concat(Command.SelectionOptions.ExcludedDirectories.Select(filter => filter + " "))}");
                     WriteToLogs("");
                 }
 
                 WriteToLogs("");
-                WriteToLogs($"  Options : {Command.CommandOptions}");
+                WriteToLogs($"{PadHeader("Options")} : {Command.CommandOptions}");
                 WriteToLogs("");
                 WriteToLogs(Divider);
                 WriteToLogs("");
@@ -235,7 +244,7 @@ namespace RFBCodeWorks.CachedRoboCopy
 
             int[] ColSizes = GetColumnSizes();
             string SummaryLine() => string.Format("\t{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}", "\t", RightAlign(ColSizes[0],"Total"), RightAlign(ColSizes[1], "Copied"), RightAlign(ColSizes[2], "Skipped"), RightAlign(ColSizes[3], "Mismatch"), RightAlign(ColSizes[4], "FAILED"), RightAlign(ColSizes[5], "Extras"));
-            string Tabulator(string name, IStatistic stat) => string.Format("\t{0} : {1}\t{2}\t{3}\t{4}\t{5}\t{6}", name, Align(ColSizes[0], stat.Total), Align(ColSizes[1], stat.Copied), Align(ColSizes[2], stat.Skipped), Align(ColSizes[3], stat.Mismatch), Align(ColSizes[4], stat.Failed), Align(ColSizes[5], stat.Extras));
+            string Tabulator(string name, IStatistic stat) => string.Format("{0} : {1}\t{2}\t{3}\t{4}\t{5}\t{6}", PadHeader(name), Align(ColSizes[0], stat.Total), Align(ColSizes[1], stat.Copied), Align(ColSizes[2], stat.Skipped), Align(ColSizes[3], stat.Mismatch), Align(ColSizes[4], stat.Failed), Align(ColSizes[5], stat.Extras));
 
             if (IsSummaryCreated) return;
             EndTime = DateTime.Now;
@@ -255,7 +264,10 @@ namespace RFBCodeWorks.CachedRoboCopy
                 TimeSpan totalTime = EndTime - StartTime;
                 WriteToLogs($"\tTotal Time: {totalTime.Hours} hours, {totalTime.Minutes} minutes, {totalTime.Seconds}.{totalTime.Milliseconds} seconds");
                 if (!Command.LoggingOptions.ListOnly) WriteToLogs($"\t{AverageSpeed}");
-                
+                WriteToLogs("");
+                WriteToLogs(Divider);
+                WriteToLogs("");
+
             }
             IsSummaryCreated = true;
         }
@@ -270,8 +282,11 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <param name="lines"></param>
         protected virtual void WriteToLogs(params string[] lines)
         {
-            LogLines.AddRange(lines);
-            Command.LoggingOptions.AppendToLogs(lines);
+            lock (LogLines)
+            {
+                LogLines.AddRange(lines);
+                Command.LoggingOptions.AppendToLogs(lines);
+            }
         }
 
         /// <summary>
