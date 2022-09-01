@@ -100,7 +100,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         }
 
         /// <summary>
-        /// Mark an file as SKIPPED
+        /// Mark an file as PURGED
         /// </summary>
         /// <param name="file"></param>
         public virtual void AddFilePurged(ProcessedFileInfo file)
