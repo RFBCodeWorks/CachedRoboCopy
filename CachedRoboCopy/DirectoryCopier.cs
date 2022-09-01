@@ -167,6 +167,11 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// </summary>
         public ProcessedFileInfo RoboSharpInfo { get; set; }
 
+        public DirectoryClasses DirectoryClass { get; set; }
+
+        public bool ShouldExclude_JunctionDirectory { get; set; }
+        public bool ShouldExclude_NamedDirectory { get; set; }
+
         ///// <summary>
         ///// 
         ///// </summary>
@@ -326,6 +331,11 @@ namespace RFBCodeWorks.CachedRoboCopy
             SubDirectories = GetDirectoryCopiersEnumerable();
         }
 
+        /// <summary>
+        /// Recursively delete the entire destination folder and all its contents
+        /// </summary>
+        /// <param name="options"></param>
+        /// <returns></returns>
         public async Task Purge(RetryOptions options)
         {
             int attempts = 1;
@@ -346,6 +356,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                     await Task.Delay(new TimeSpan(hours: 0, minutes: 0, seconds: options.RetryWaitTime));
                     goto tryDelete;
                 }
+                throw e;
             }
         }
 
