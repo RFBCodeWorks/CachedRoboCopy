@@ -154,7 +154,11 @@ namespace RFBCodeWorks.CachedRoboCopy
                            else
                            {
                                RaiseFileProcessed(f); // Log File Copied
-                               if (!listOnly)
+                               if (listOnly)
+                               {
+                                   resultsBuilder.AddFileCopied(f.RoboSharpFileInfo);
+                               }
+                               else
                                {
                                    if (CopyOptions.CreateDirectoryAndFileTree)
                                    {
@@ -196,7 +200,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                    //Adds the file to the results builder and raises the event
                    void RaiseFileProcessed(FileCopier f)
                    {
-                       resultsBuilder.AddFile(f.RoboSharpFileInfo, listOnly);
+                       resultsBuilder.AddFile(f.RoboSharpFileInfo);
                        RaiseOnFileProcessed(f.RoboSharpFileInfo);
                    }
 

@@ -81,11 +81,10 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// 
         /// </summary>
         /// <param name="file"></param>
-        /// <param name="isListOperation">TRUE if this is a ListOperation - if true, adds to the log lines, if false does not add to log lines.</param>
-        public virtual void AddFile(ProcessedFileInfo file, bool isListOperation)
+        public virtual void AddFile(ProcessedFileInfo file)
         {
-            ProgressEstimator.AddFile(file, !isListOperation);
-            if (isListOperation) LogFileInfo(file);
+            ProgressEstimator.AddFile(file);
+            if (Command.LoggingOptions.ListOnly) LogFileInfo(file);
         }
 
         /// <summary>
@@ -104,7 +103,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <param name="file"></param>
         public virtual void AddFileSkipped(ProcessedFileInfo file)
         {
-            ProgressEstimator.PerformByteCalc(file, WhereToAdd.Skipped);
+            ProgressEstimator.AddFile(file);
             LogFileInfo(file, " -- Skipped");
         }
 
@@ -114,7 +113,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <param name="file"></param>
         public virtual void AddFilePurged(ProcessedFileInfo file)
         {
-            ProgressEstimator.PerformByteCalc(file, WhereToAdd.Extra);
+            ProgressEstimator.AddFile(file);
             LogFileInfo(file, " -- Purged");
         }
 

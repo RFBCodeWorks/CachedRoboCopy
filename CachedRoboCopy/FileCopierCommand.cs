@@ -148,7 +148,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                     copier.RoboSharpFileInfo = info;
                     copier.RoboSharpDirectoryInfo = new ProcessedFileInfo(Path.GetDirectoryName(copier.Source.FullName), FileClassType.NewDir, this.Configuration.GetDirectoryClass(DirectoryClasses.ExistingDir), 1);
 
-                    resultsBuilder.AddFile(copier.RoboSharpFileInfo, LoggingOptions.ListOnly);
+                    resultsBuilder.AddFile(copier.RoboSharpFileInfo);
 
                     //Check if it can copy, or if there is a need to copy.
                     bool canCopy = !copier.IsExtra() && (copier.IsLonely() || !(copier.IsSameDate() && copier.Source.Length == copier.Destination.Length));
