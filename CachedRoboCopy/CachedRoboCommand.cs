@@ -102,11 +102,15 @@ namespace RFBCodeWorks.CachedRoboCopy
                List<FileCopier> fileCopiers = new();
 
                await Dig(TopLevelDirectory);
-               await Task.Delay(100);
+               await WaitCopyComplete();
+               return;
 
                async Task Dig(DirectoryCopier dir, int currentDepth = 0)
                {
+                   if (CancellationTokenSource.IsCancellationRequested) return;
+
                    RaiseDirProcessed(dir);
+                   if (!listOnly) dir.Destination.Create();
 
                    //Process all files in this directory
                    foreach (var f in dir.Files)
@@ -164,9 +168,9 @@ namespace RFBCodeWorks.CachedRoboCopy
                                    resultsBuilder.ProgressEstimator.SetCopyOpStarted(); // Mark as starting the copy operation
                                    Task copyTask;
                                    if (move)
-                                       copyTask = f.Move(RetryOptions);
+                                       copyTask = f.Move(RetryOptions, evaluator.ApplyAttributes);
                                    else
-                                       copyTask = f.Copy(RetryOptions);
+                                       copyTask = f.Copy(RetryOptions, evaluator.ApplyAttributes);
 
                                    Task continuation = copyTask.ContinueWith(t =>
                                    {
@@ -216,7 +220,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                    #endregion
 
                    // Wait for all files to finish copying before digging further into the directory tree
-                   //await CopyTasks.WhenAll(CancellationTokenSource.Token);
+                   await WaitCopyComplete();
 
                    // Process the Directories
                    if (CanDigDeeper())
@@ -224,6 +228,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                        foreach (var d in dir.SubDirectories)
                        {
                            if (CancellationTokenSource.IsCancellationRequested) break;
+                           if (d is null | d == dir) continue;
 
                            // Get the ProcessedFileInfo object
                            if (d.RoboSharpInfo is null)
@@ -263,12 +268,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                            }
                            else // Check to dig into the directory
                            {
-                               if (!listOnly)
-                               {
-                                   d.Destination.Create();
-                               }
-
-                               await Dig(d, currentDepth++);
+                               await Dig(d, currentDepth + 1);
 
                                if (move && !listOnly && d.Source.Exists)
                                {
@@ -278,6 +278,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                            }
                        }
                    }
+
                    #region < Dir Copier Helper Routines >
 
                    //Adds the file to the results builder and raises the event
@@ -294,7 +295,11 @@ namespace RFBCodeWorks.CachedRoboCopy
                    }
 
                    #endregion
+               }
 
+               //Await all copy tasks to finish running before moving to the next directory
+               async Task WaitCopyComplete()
+               {
                    await CopyTasks.WhenAll(CancellationTokenSource.Token);
                    if (CancellationTokenSource.IsCancellationRequested)
                    {
@@ -303,7 +308,6 @@ namespace RFBCodeWorks.CachedRoboCopy
                            f.Cancel();
                        await CopyTasks.WhenAll();
                    }
-
                }
 
            }, TaskCreationOptions.LongRunning).Unwrap();
