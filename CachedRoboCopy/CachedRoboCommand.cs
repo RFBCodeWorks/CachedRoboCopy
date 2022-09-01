@@ -42,25 +42,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         #endregion
 
         private CancellationTokenSource CancellationTokenSource { get; set; }
-        //private bool HasBeenListed { get; set; }
         
-        ///// <summary>
-        ///// ONLY FOR MOVING ENTIRE DIRECTORIES THAT DON'T EXIST IN THE DESTINATION
-        ///// </summary>
-        //private List<DirectoryCopier> DirsToMove { get; } = new();
-        
-        ///// <summary>
-        ///// List of Dirs where the Source is empty of files
-        ///// </summary>
-        //private List<DirectoryCopier> EmptyDirs { get; } = new();
-
-        //private List<DirectoryCopier> DirInfos { get; } = new();
-        ///// <summary>
-        ///// Used for all Copy/Move operations that may or may not exist in the destination
-        ///// </summary>
-        //private IEnumerable<FileCopier> FileCopiers { get; set; }
-        
-        private ProcessedFileInfo LastDirectoryInfo { get; set; }
         private DirectoryCopier TopLevelDirectory { get; set; }
 
         /// <inheritdoc/>
@@ -125,8 +107,6 @@ namespace RFBCodeWorks.CachedRoboCopy
                async Task Dig(DirectoryCopier dir, int currentDepth = 0)
                {
                    RaiseDirProcessed(dir);
-                   LastDirectoryInfo = dir.RoboSharpInfo;
-
 
                    //Process all files in this directory
                    foreach (var f in dir.Files)
