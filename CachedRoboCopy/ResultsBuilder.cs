@@ -17,6 +17,8 @@ namespace RFBCodeWorks.CachedRoboCopy
     /// </summary>
     public class ResultsBuilder
     {
+        #region < Constructor >
+
         /// <summary>
         /// Create a new  results builder
         /// </summary>
@@ -29,9 +31,19 @@ namespace RFBCodeWorks.CachedRoboCopy
             CreateHeader();
         }
 
+        #endregion
+
+        #region < Properties >
+
         private IRoboCommand Command { get; }
         private ProgressEstimator ProgressEstimatorField;
-        
+        private List<string> LogLines { get; } = new();
+
+        /// <summary>
+        /// Gets an array of all the log lines currently logged
+        /// </summary>
+        public string[] CurrentLogLines => LogLines.ToArray();
+
         /// <summary>
         /// Used to calculate the average speed, and is supplied to the results object when getting results.
         /// </summary>
@@ -61,12 +73,9 @@ namespace RFBCodeWorks.CachedRoboCopy
             set { ProgressEstimatorField = value; }
         }
 
-        /// <summary>
-        /// Gets an array of all the log lines currently logged
-        /// </summary>
-        public string[] CurrentLogLines => LogLines.ToArray();
+        #endregion
 
-        private List<string> LogLines { get; } = new();
+        #region < Add Files >
 
         /// <summary>
         /// 
@@ -116,6 +125,10 @@ namespace RFBCodeWorks.CachedRoboCopy
                 WriteToLogs(file.ToString(Command.LoggingOptions) + suffix);
         }
 
+        #endregion
+
+        #region < Add Dirs >
+
         /// <summary>
         /// Add a directory to the 
         /// </summary>
@@ -128,6 +141,10 @@ namespace RFBCodeWorks.CachedRoboCopy
                 WriteToLogs(file.ToString(Command.LoggingOptions));
         }
 
+        #endregion
+
+        #region < Add System Message >
+
         /// <summary>
         /// Adds a System Message to the logs
         /// </summary>
@@ -139,6 +156,10 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// </summary>
         /// <param name="info"></param>
         public void AddSystemMessage(string info) => WriteToLogs(info);
+
+        #endregion
+
+        #region < Create Header / Summary >
 
         const string Divider = "------------------------------------------------------------------------------";
 
@@ -239,14 +260,9 @@ namespace RFBCodeWorks.CachedRoboCopy
             IsSummaryCreated = true;
         }
 
-        /// <summary>
-        /// Get the results
-        /// </summary>
-        public virtual RoboCopyResults GetResults()
-        {
-            CreateSummary();
-            return ProgressEstimator.GetResults(StartTime, EndTime < StartTime ? DateTime.Now :EndTime, AverageSpeed, LogLines.ToArray());
-        }
+        #endregion
+
+        #region < Get Results / Write to Logs >
 
         /// <summary>
         /// Add the lines to the log lines, and also write it to the output logs
@@ -257,6 +273,17 @@ namespace RFBCodeWorks.CachedRoboCopy
             LogLines.AddRange(lines);
             Command.LoggingOptions.AppendToLogs(lines);
         }
+
+        /// <summary>
+        /// Get the results
+        /// </summary>
+        public virtual RoboCopyResults GetResults()
+        {
+            CreateSummary();
+            return ProgressEstimator.GetResults(StartTime, EndTime < StartTime ? DateTime.Now :EndTime, AverageSpeed, LogLines.ToArray());
+        }
+
+        #endregion
 
     }
 }
