@@ -103,7 +103,6 @@ namespace RFBCodeWorks.CachedRoboCopy
             CopyProgressUpdated?.Invoke(this, new FileCopyProgressUpdatedEventArgs(progress, Source, Destination, RoboSharpFileInfo, RoboSharpDirectoryInfo));
         }
 
-        
         #endregion
 
         #region < FileCopyCompleted >
@@ -216,16 +215,6 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// </summary>
         public long Bytes => Source.Exists ? Source.Length : Destination.Length;
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public long KiloBytes => Bytes / 1024;
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public long MegaBytes => KiloBytes / 1024;
-
         #endregion
 
         #region < Progress Reporting >
@@ -330,7 +319,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                 OnFileCopyFailed("Destination file already exists", cancelled: true);
                 return Task.FromResult(false);
             }
-
+            
             if (IsCopying) throw new Exception("Copy Operation Already in progress!");
 
             CancellationSource = new CancellationTokenSource();
