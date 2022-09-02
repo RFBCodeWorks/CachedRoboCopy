@@ -100,10 +100,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         protected virtual void OnFileCopyProgressUpdated(double progress)
         {
             Progress = progress;
-            var res = (CopyProgressUpdated?.BeginInvoke(
-                this, new FileCopyProgressUpdatedEventArgs(progress, Source, Destination, RoboSharpFileInfo, RoboSharpDirectoryInfo),
-                null, null));
-            CopyProgressUpdated?.EndInvoke(res);
+            CopyProgressUpdated?.Invoke(this, new FileCopyProgressUpdatedEventArgs(progress, Source, Destination, RoboSharpFileInfo, RoboSharpDirectoryInfo));
         }
 
         #endregion
@@ -378,6 +375,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary> Custom written copy operation that handles the read/write </summary>
         /// <returns> TRUE if successful, false is not </returns>
         /// <remarks> <see href="https://stackoverflow.com/questions/6044629/file-copy-with-progress-bar"/></remarks>
+        /// Was providing approx 3-5 MegaBytes per minute in my testing
         private bool SingleBufferCopy()
         {
             byte[] buffer = new byte[1024 * 1024]; // 1MB buffer
@@ -412,6 +410,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary> Custom written copy operation that handles the read/write </summary>
         /// <returns> TRUE if successful, false is not </returns>
         /// <remarks> <see href="https://stackoverflow.com/questions/6044629/file-copy-with-progress-bar"/></remarks>
+        /// Was providing approx 3-5 MegaBytes per minute in my testing
         private bool DoubleBufferCopy()
         {
             const int bufferSize = 1024 * 1024;  //1MB
