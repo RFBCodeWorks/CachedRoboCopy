@@ -206,6 +206,7 @@ namespace RFBCodeWorks.CachedRoboCopy
 
                    void FileCopyCompleted(object sender, FileCopyCompletedEventArgs e)
                    {
+                       resultsBuilder.AverageSpeed.Average(e.Speed);
                        resultsBuilder.AddFileCopied(e.RoboSharpFileInfo);
                    }
                    void FileCopyFailed(object sender, FileCopyFailedEventArgs e)
@@ -222,6 +223,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                    bool ShouldWait()
                    {
                        if (CancellationTokenSource.IsCancellationRequested) return false;
+                       if (IsPaused) return true;
                        if (CopyOptions.MultiThreadedCopiesCount <= 0) return false;
                        if (CopyTasks.Where(t => t.Status < TaskStatus.RanToCompletion).Count() >= CopyOptions.MultiThreadedCopiesCount) return true;
                        return false;
