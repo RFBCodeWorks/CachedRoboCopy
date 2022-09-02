@@ -376,7 +376,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             //when a chunk is finished call the progress changed.
             if (dwCallbackReason == CopyProgressCallbackReason.CALLBACK_CHUNK_FINISHED)
             {
-                OnFileCopyProgressUpdated((TotalBytesTransferred / (double)TotalFileSize) * 100.0);
+                OnFileCopyProgressUpdated(TotalBytesTransferred / (double)TotalFileSize * 100.0);
             }
             return CancellationSource.IsCancellationRequested ? CopyProgressResult.PROGRESS_CANCEL : CopyProgressResult.PROGRESS_CONTINUE;
         }
