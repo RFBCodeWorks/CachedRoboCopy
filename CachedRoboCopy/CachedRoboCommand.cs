@@ -225,7 +225,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                        if (CancellationTokenSource.IsCancellationRequested) return false;
                        if (IsPaused) return true;
                        if (CopyOptions.MultiThreadedCopiesCount <= 0) return false;
-                       if (CopyTasks.Where(t => t.Status < TaskStatus.RanToCompletion).Count() >= CopyOptions.MultiThreadedCopiesCount) return true;
+                       if (CopyTasks.Any() && CopyTasks.Where(t => t.Status < TaskStatus.RanToCompletion).Count() >= CopyOptions.MultiThreadedCopiesCount) return true;
                        return false;
                    }
 
@@ -233,6 +233,7 @@ namespace RFBCodeWorks.CachedRoboCopy
 
                    // Wait for all files to finish copying before digging further into the directory tree
                    await WaitCopyComplete();
+                   CopyTasks.Clear(); // Clear the buffer since all have finished copying
 
                    // Process the Directories
                    if (CanDigDeeper())
