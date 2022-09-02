@@ -110,7 +110,18 @@ namespace RFBCodeWorks.CachedRoboCopy.TestApp
         {
             Debugger.Instance.DebugMessageEvent += DebugMessage;
             bool getCachedCommand = this.GenOption_CachedRoboCommand.IsChecked ?? false;
-            IRoboCommand copy = getCachedCommand ? (IRoboCommand)new CachedRoboCommand() { Name = JobName.Text } : new RoboCommand() { Name = JobName.Text };
+
+            IRoboCommand copy;
+            if (this.copy is null || this.copy.CopyOptions.Source != Source.Text | this.copy.CopyOptions.Destination != Destination.Text)
+            {
+                copy = getCachedCommand ? (IRoboCommand)new CachedRoboCommand() { Name = JobName.Text } : new RoboCommand() { Name = JobName.Text };
+                this.copy = copy;
+            }
+            else
+            {
+                copy = this.copy;
+            }
+            
             if (BindEvents)
             {
                 SingleJobExpander_Progress.BindToCommand(copy);
