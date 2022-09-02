@@ -99,8 +99,11 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary> Raises the FileCopyProgressUpdated event </summary>
         protected virtual void OnFileCopyProgressUpdated(double progress)
         {
-            this.Progress = progress;
-            CopyProgressUpdated?.Invoke(this, new FileCopyProgressUpdatedEventArgs(progress, Source, Destination, RoboSharpFileInfo, RoboSharpDirectoryInfo));
+            Progress = progress;
+            var res = (CopyProgressUpdated?.BeginInvoke(
+                this, new FileCopyProgressUpdatedEventArgs(progress, Source, Destination, RoboSharpFileInfo, RoboSharpDirectoryInfo),
+                null, null));
+            CopyProgressUpdated?.EndInvoke(res);
         }
 
         #endregion
@@ -327,12 +330,17 @@ namespace RFBCodeWorks.CachedRoboCopy
             IsCopied = false;
             IsCopying = true;
 
-            Task<bool> copyTask = new Task<bool>(() =>
-            {
-                bool pbCancel = false;
-                Directory.CreateDirectory(Destination.DirectoryName);
-                return FileCopyEx.CopyFile(Source.FullName, Destination.FullName, CopyProgressHandler, ref pbCancel, CopyFileFlags.COPY_FILE_RESTARTABLE);
-            }, CancellationSource.Token, TaskCreationOptions.LongRunning);
+            Task<bool> copyTask = Task.Run(() =>
+           {
+               Directory.CreateDirectory(Destination.DirectoryName);
+               Destination.Delete();
+
+               bool pbCancel = false;
+               return FileCopyEx.CopyFile(Source.FullName, Destination.FullName, CopyProgressHandler, ref pbCancel, CopyFileFlags.COPY_FILE_RESTARTABLE);
+               //return DoubleBufferCopy();
+               //return SingleBufferCopy();
+           
+           }, CancellationSource.Token);
 
             Task<bool> continuation = copyTask.ContinueWith((result) =>
            {
@@ -363,8 +371,79 @@ namespace RFBCodeWorks.CachedRoboCopy
                return completed;
            }, TaskContinuationOptions.LongRunning);
 
-            copyTask.Start();
+            //copyTask.Start();
             return continuation;
+        }
+
+        /// <summary> Custom written copy operation that handles the read/write </summary>
+        /// <returns> TRUE if successful, false is not </returns>
+        /// <remarks> <see href="https://stackoverflow.com/questions/6044629/file-copy-with-progress-bar"/></remarks>
+        private bool SingleBufferCopy()
+        {
+            byte[] buffer = new byte[1024 * 1024]; // 1MB buffer
+
+            using (FileStream source = Source.OpenRead())
+            {
+                long fileLength = source.Length;
+                if (Destination.Exists) Destination.Delete();
+                using (FileStream dest = new FileStream(Destination.FullName, FileMode.CreateNew, FileAccess.Write))
+                {
+                    long totalBytes = 0;
+                    int currentBlockSize = 0;
+
+                    while ((currentBlockSize = source.Read(buffer, 0, buffer.Length)) > 0)
+                    {
+                        totalBytes += currentBlockSize;
+                        double percentage = (double)totalBytes * 100.0 / fileLength;
+
+                        dest.Write(buffer, 0, currentBlockSize);
+
+                        OnFileCopyProgressUpdated(percentage);
+                        if (CancellationSource.IsCancellationRequested)
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        /// <summary> Custom written copy operation that handles the read/write </summary>
+        /// <returns> TRUE if successful, false is not </returns>
+        /// <remarks> <see href="https://stackoverflow.com/questions/6044629/file-copy-with-progress-bar"/></remarks>
+        private bool DoubleBufferCopy()
+        {
+            const int bufferSize = 1024 * 1024;  //1MB
+            byte[] buffer = new byte[bufferSize], buffer2 = new byte[bufferSize];
+            bool swap = false;
+            double reportedProgress = 0, progress;
+            int read = 0;
+            long len = Source.Length;    
+            float flen = len;
+            Task writer = null;
+
+            Destination.Delete();
+            using (var source = Source.OpenRead())
+            using (var dest = Destination.OpenWrite())
+            {
+                dest.SetLength(source.Length);
+                for (long size = 0; size < len; size += read)
+                {
+                    if ((progress = size / flen * 100) != reportedProgress)
+                        OnFileCopyProgressUpdated(reportedProgress = progress);
+
+                    read = source.Read(swap ? buffer : buffer2, 0, bufferSize);
+                    writer?.Wait();  // if < .NET4 // if (writer != null) writer.Wait(); 
+                    writer = dest.WriteAsync(swap ? buffer : buffer2, 0, read);
+                    swap = !swap;
+                    if (CancellationSource.IsCancellationRequested)
+                        return false;
+                }
+                writer?.Wait();  //Fixed - Thanks @sam-hocevar
+                OnFileCopyProgressUpdated(100);
+            }
+            return true;
         }
 
         /// <summary>
