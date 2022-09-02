@@ -331,7 +331,9 @@ namespace RFBCodeWorks.CachedRoboCopy
                 {
                     RaiseOnTaskFaulted(runTask.Exception);
                 }
-                base.SaveResults(resultsBuilder?.GetResults());
+                var results = resultsBuilder?.GetResults();
+                base.SaveResults(results);
+                RaiseOnCommandCompleted(results);
             });
             return finishTask;
 

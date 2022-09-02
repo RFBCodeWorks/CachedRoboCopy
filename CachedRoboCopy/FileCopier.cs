@@ -392,11 +392,11 @@ namespace RFBCodeWorks.CachedRoboCopy
                 OnFileCopyProgressUpdated((TotalBytesTransferred / (double)TotalFileSize) * 100.0);
             }
 
-            //transfer completed
-            if (TotalBytesTransferred >= TotalFileSize)
-            {
-                OnFileCopyCompleted();
-            }
+            ////transfer completed
+            //if (TotalBytesTransferred >= TotalFileSize)
+            //{
+            //    OnFileCopyCompleted();
+            //}
 
             return CancellationSource.IsCancellationRequested ? CopyProgressResult.PROGRESS_CANCEL : CopyProgressResult.PROGRESS_CONTINUE;
         }
