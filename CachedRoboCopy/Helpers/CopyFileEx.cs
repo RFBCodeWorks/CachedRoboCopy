@@ -206,6 +206,9 @@ namespace RFBCodeWorks.CachedRoboCopy.CopyFileEx
 
         #endregion
 
+        ///<summary>
+        /// Look up the Win32 error code and throw the appropriate exception. If not defined in the statement, throw a generic exception with the fault code.
+        /// </summary>
         /// <remarks>
         /// <see href="https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/18d8fbe8-a967-4f1c-ae50-99ca8e491d2d"/>
         /// </remarks>
