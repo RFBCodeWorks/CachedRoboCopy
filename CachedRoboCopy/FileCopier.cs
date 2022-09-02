@@ -18,7 +18,7 @@ namespace RFBCodeWorks.CachedRoboCopy
     /// <summary>
     /// An optimized File-Copier that reports file copy progress, and optimizes the 'Move' functionality if the file exists on the same drive.
     /// </summary>
-    public class FileCopier : IFileCopier, INotifyPropertyChanged, IDisposable, IFileSourceDestinationPair
+    public class FileCopier : IFileCopier, INotifyPropertyChanged, IDisposable, IFilePair
     {
 
         #region < Constructors >
@@ -75,7 +75,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary>
         /// Used for synchronizing the items network to local
         /// </summary>
-        public FileCopier(IFileSourceDestinationPair FilePair)
+        public FileCopier(IFilePair FilePair)
         {
             if (FilePair is null) throw new ArgumentNullException(nameof(FilePair));
             Source = FilePair?.Source ?? throw new ArgumentNullException("Source");

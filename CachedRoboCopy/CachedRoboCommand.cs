@@ -53,7 +53,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             IsCancelled = false;
             IsPaused = false;
             bool listOnly = LoggingOptions.ListOnly;
-            var evaluator = new RoboSharp.Extensions.SourceDestinationEvaluator(this);
+            var evaluator = new PairEvaluator(this);
 
             //Setup the Instance
             try

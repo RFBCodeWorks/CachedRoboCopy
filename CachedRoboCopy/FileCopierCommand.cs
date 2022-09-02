@@ -122,7 +122,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             {
                 List<Task> queue = new List<Task>();
                 Task copyTask = null;
-                var evaluator = new RoboSharp.Extensions.SourceDestinationEvaluator(this);
+                var evaluator = new PairEvaluator(this);
                 foreach (FileCopier copier in this)
                 {
                     #region < Setup the Events and Continuation Task >
