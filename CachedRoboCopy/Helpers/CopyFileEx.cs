@@ -126,6 +126,7 @@ namespace RFBCodeWorks.CachedRoboCopy.CopyFileEx
     /// <summary>
     /// CopyFileEx if a file copy engine that reports copy progress - class doesn't match name due to naming convention errors
     /// </summary>
+    ///  Move File with progress: https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefilewithprogressa
     public static class FileCopyEx
     {
         #region < Setup CopyFileEx >
