@@ -208,7 +208,7 @@ namespace RFBCodeWorks.CachedRoboCopy
 
         public bool IsSourceEmpty => !SourceHasFiles && !SourceHasSubDirectories;
 
-        /// <inheritdoc cref="DirectoryPairExtensions.islo"/>
+        /// <inheritdoc cref="DirectoryPairExtensions.IsLonely(IDirectoryPair)"/>
         public bool IsLonely => ((IDirectoryPair)this).IsLonely();
 
         /// <inheritdoc cref="DirectoryPairExtensions.IsExtra(IDirectoryPair)"/>
@@ -223,105 +223,6 @@ namespace RFBCodeWorks.CachedRoboCopy
         #endregion
 
         #region < Object Methods >
-
-        ///// <param name="verbose">
-        ///// If Source / Destination are on same drive and the destination doesn't exist, default functionality will use Directory.Move() to move the folder in its entirety in one fast command. <br/>
-        ///// That has the downside of not logging the filenames, but is much quicker. If explicit logging is requested, turn this on to do normal functionality.
-        ///// </param>
-        ///// <inheritdoc cref="FileCopier.Copy(bool)"/>
-        ///// <param name="directoryInclusionPattern"/><param name="fileInclusionPattern"/><param name="ignoredDirs"/><param name="overwrite"/>
-        //public async Task<bool> Move(bool overwrite = true, bool verbose = false, string fileInclusionPattern = "*", string directoryInclusionPattern = "*", params string[] ignoredDirs)
-        //{
-        //    if (!CanCopy()) return false;
-        //    bool result = false;
-        //    if (!verbose && Path.GetPathRoot(Source.FullName).Equals(Path.GetPathRoot(Destination.FullName), StringComparison.InvariantCultureIgnoreCase))
-        //    {
-        //        if (!Directory.Exists(Destination.FullName))
-        //        {
-        //            try
-        //            {
-        //                Directory.Move(Source.FullName, Destination.FullName);
-        //                result = true;
-        //            }
-        //            catch (Exception e)
-        //            {
-        //                OnFileCopyFailed(new FileCopyFailedEventArgs(null, e.Message));
-        //                OnCopyCompleted(false, e);
-        //            }
-        //            if (result) OnCopyCompleted(result);
-        //            return result;
-        //        }
-        //    }
-
-        //    CancellationSource = new CancellationTokenSource();
-        //    result = await Dig(this, true, overwrite, fileInclusionPattern, ignoredDirs, directoryInclusionPattern);
-        //    OnCopyCompleted(result);
-        //    return result;
-        //}
-
-        //private Task<bool> Dig(DirectoryCopier copier, bool isMoveOperation, bool overwrite,
-        //    string fileInclusionPattern, string[] ignoredDirs, string directoryIncludsionPattern = "*")
-        //{
-        //    return RunCopyOp(
-        //        copier.GetFileCopiers(fileInclusionPattern),
-        //        copier.GetDirectoryCopiers(directoryIncludsionPattern, ignoredDirs),
-        //        isMoveOperation, overwrite, fileInclusionPattern, ignoredDirs);
-        //}
-
-        //private async Task<bool> RunCopyOp(FileCopier[] fileCopiers, DirectoryCopier[] directoryCopiers, bool isMoveOperation, bool overwrite, string fileInclusionPattern, string[] ignoredDirs)
-        //{
-        //    bool result = true;
-        //    foreach( var f in fileCopiers)
-        //    {
-        //        if (CancellationSource.IsCancellationRequested) throw new TaskCanceledException();
-        //        f.CopyProgressUpdated += FileCopyProgressUpdated;
-        //        f.CopyCompleted += FileCopyCompleted;
-        //        f.CopyFailed += FileCopyFailed;
-        //        var copyTask = (isMoveOperation ? f.Move(overwrite) : f.Copy(overwrite));
-        //        await Task.Run(() => Task.WaitAll(new Task[] { copyTask}, CancellationSource.Token));
-        //        if (CancellationSource.IsCancellationRequested) f.Cancel();
-        //        result &= await copyTask;
-        //        f.CopyProgressUpdated -= FileCopyProgressUpdated;
-        //        f.CopyCompleted -= FileCopyCompleted;
-        //        f.CopyFailed -= FileCopyFailed;
-        //    }
-
-        //    foreach (var d in directoryCopiers)
-        //    {
-        //        if (CancellationSource.IsCancellationRequested) throw new TaskCanceledException();
-        //        d.FileCopyProgressUpdated += FileCopyProgressUpdated;
-        //        d.FileCopyCompleted += FileCopyCompleted;
-        //        d.FileCopyFailed += FileCopyFailed;
-        //        var digTask = Dig(d, isMoveOperation, overwrite, fileInclusionPattern, ignoredDirs);
-        //        await Task.Run(() => Task.WaitAll(new Task[] { digTask }, CancellationSource.Token));
-        //        result &= digTask.Result;
-        //        d.FileCopyProgressUpdated -= FileCopyProgressUpdated;
-        //        d.FileCopyCompleted -= FileCopyCompleted;
-        //        d.FileCopyFailed -= FileCopyFailed;
-        //    }
-        //    return result;
-        //}
-
-        ///// <summary>
-        ///// Check if the object can copy or not
-        ///// </summary>
-        ///// <returns></returns>
-        //public bool CanCopy() => !IsCopying;
-
-        ///// <summary>
-        ///// Check if the object can cancel or not
-        ///// </summary>
-        ///// <returns></returns>
-        //public bool CanCancel() => IsCopying && !(CancellationSource?.IsCancellationRequested ?? true);
-
-        ///// <summary>
-        ///// Cancel the copy operations - does not have any effect on successfully copied/moved files
-        ///// </summary>
-        //public void Cancel()
-        //{
-        //    if (CanCancel())
-        //        CancellationSource.Cancel();
-        //}
 
         /// <summary>
         /// Refresh the entire object, including the cached enumerables
@@ -347,21 +248,19 @@ namespace RFBCodeWorks.CachedRoboCopy
             Source.Refresh();
             Destination.Refresh();
         tryDelete:
-            try {
-
+            try
+            {
                 if (IsExtra)
-                { Destination.Delete(true);
+                {
+                    Destination.Delete(true);
                     Destination.Refresh();
                 }
             }
-            catch(Exception e)
+            catch when (attempts < options.RetryCount)
             {
-                if (attempts < options.RetryCount)
-                {
-                    await Task.Delay(new TimeSpan(hours: 0, minutes: 0, seconds: options.RetryWaitTime));
-                    goto tryDelete;
-                }
-                throw e;
+
+                await Task.Delay(new TimeSpan(hours: 0, minutes: 0, seconds: options.RetryWaitTime));
+                goto tryDelete;
             }
         }
 
@@ -380,7 +279,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <returns></returns>
         private CachedEnumerable<FileCopier> GetFileCopiersEnumerable()
         {
-            return DirectoryPairExtensions.GetFilePairsEnumerable(this, (i1, i2) => new FileCopier(i1, i2));
+            return DirectoryPairExtensions.EnumerateFilePairs(this, (i1, i2) => new FileCopier(i1, i2));
         }
 
 
@@ -399,7 +298,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <returns></returns>
         private CachedEnumerable<DirectoryCopier> GetDirectoryCopiersEnumerable()
         {
-            return DirectoryPairExtensions.GetDirectoryPairsEnumerable(this, (i, i2) => new DirectoryCopier(i, i2));
+            return DirectoryPairExtensions.EnumerateDirectoryPairs(this, (i, i2) => new DirectoryCopier(i, i2));
         }
 
         #endregion

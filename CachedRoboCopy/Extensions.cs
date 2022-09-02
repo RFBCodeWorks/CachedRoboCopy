@@ -8,7 +8,7 @@ using System.IO;
 
 namespace RFBCodeWorks.CachedRoboCopy
 {
-    static class Extensions
+    internal static class MiscExtensions
     {
         #region < WhenAll >
 

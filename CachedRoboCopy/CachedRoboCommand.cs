@@ -168,9 +168,9 @@ namespace RFBCodeWorks.CachedRoboCopy
                                    else
                                    {
                                        fileCopiers.Add(f);
-                                       f.FileCopyProgressUpdated += FileCopyProgressUpdated;
-                                       f.FileCopyFailed += FileCopyFailed;
-                                       f.FileCopyCompleted += FileCopyCompleted;
+                                       f.CopyProgressUpdated += FileCopyProgressUpdated;
+                                       f.CopyFailed += FileCopyFailed;
+                                       f.CopyCompleted += FileCopyCompleted;
                                        resultsBuilder.ProgressEstimator.SetCopyOpStarted(); // Mark as starting the copy operation
                                        Task copyTask;
                                        if (move)
@@ -180,9 +180,9 @@ namespace RFBCodeWorks.CachedRoboCopy
 
                                        Task continuation = copyTask.ContinueWith(t =>
                                        {
-                                           f.FileCopyProgressUpdated -= FileCopyProgressUpdated;
-                                           f.FileCopyFailed -= FileCopyFailed;
-                                           f.FileCopyCompleted -= FileCopyCompleted;
+                                           f.CopyProgressUpdated -= FileCopyProgressUpdated;
+                                           f.CopyFailed -= FileCopyFailed;
+                                           f.CopyCompleted -= FileCopyCompleted;
                                        });
                                        CopyTasks.Add(continuation);
                                    }
@@ -211,7 +211,10 @@ namespace RFBCodeWorks.CachedRoboCopy
                    void FileCopyFailed(object sender, FileCopyFailedEventArgs e)
                    {
                        if (e.WasFailed)
+                       {
                            resultsBuilder.AddSystemMessage($"{e.Source} -- FAILED");
+                           RaiseOnError(new RoboSharp.ErrorEventArgs(e.Exception, e.Destination.FullName, DateTime.Now));
+                       }
                        else if (e.WasCancelled)
                            resultsBuilder.AddSystemMessage($"{e.Source} -- CANCELLED");
                    }

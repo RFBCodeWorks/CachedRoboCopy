@@ -1,6 +1,9 @@
-﻿using RoboSharp.Interfaces;
+﻿using RoboSharp;
+using RoboSharp.Extensions;
+using RoboSharp.Interfaces;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,22 +11,51 @@ using static RFBCodeWorks.CachedRoboCopy.FileCopier;
 
 namespace RFBCodeWorks.CachedRoboCopy
 {
-    interface IFileCopier
+    /// <summary>
+    /// Interface for objects that allow copying/moving with events for success or failure.
+    /// </summary>
+    public interface IFileCopier : IFilePair
     {
+
+        #region < Events >
+
         /// <summary>
         /// Occurs when the copy progress is updated
         /// </summary>
-        public event FileCopyProgressUpdatedHandler FileCopyProgressUpdated;
+        public event CopyProgressUpdatedEventHandler CopyProgressUpdated;
 
         /// <summary>
-        /// Occurs when a file copy is successfully completed
+        /// Occurs when a file copy/move is successfully completed
         /// </summary>
-        public event FileCopyCompletedHandler FileCopyCompleted;
+        public event CopyCompletedEventHandler CopyCompleted;
 
         /// <summary>
-        /// Occurs when a file copy Fails, or is skipped
+        /// Occurs when a file copy/move operation fails. May contain exception information.
         /// </summary>
-        public event FileCopyFailedHandler FileCopyFailed;
+        public event CopyFailedEventHandler CopyFailed;
+
+        #endregion
+
+        #region < Properties >
+
+        /// <inheritdoc cref="FileCopier.IsCopying"/>
+        public bool IsCopying { get; }
+
+        /// <inheritdoc cref="FileCopier.WasCancelled"/>
+        public bool WasCancelled { get; }
+
+        /// <inheritdoc cref="FileCopier.ShouldCopy"/>
+        public bool ShouldCopy { get; set; }
+
+        /// <inheritdoc cref="FileCopier.RoboSharpFileInfo"/>
+        public ProcessedFileInfo RoboSharpFileInfo { get; set; }
+
+        /// <inheritdoc cref="FileCopier.RoboSharpDirectoryInfo"/>
+        public ProcessedFileInfo RoboSharpDirectoryInfo { get; set; }
+
+        #endregion
+
+        #region < Methods >
 
         /// <summary>
         /// Copy the File(s) to their destination
@@ -35,6 +67,9 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// </returns>
         public Task<bool> Copy(bool overWrite = true);
 
+        /// <inheritdoc cref="FileCopier.Copy(RetryOptions, Action{System.IO.FileInfo})"/>
+        public Task<bool> Copy(RetryOptions options, Action<FileInfo> SetAttributes = null);
+
         /// <summary>
         /// Move the File(s) to their destination
         /// </summary>
@@ -45,9 +80,15 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// </returns>
         public Task<bool> Move(bool overWrite = true);
 
+        /// <inheritdoc cref="FileCopier.Move(RetryOptions, Action{FileInfo})"/>
+        public Task<bool> Move(RetryOptions options, Action<FileInfo> SetAttributes = null);
+
         /// <summary>
-        /// Cancel the Copy Operation
+        /// Cancel the Copy/Move Operation
         /// </summary>
         public void Cancel();
+
+        #endregion
+
     }
 }

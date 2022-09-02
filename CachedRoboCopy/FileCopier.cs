@@ -86,23 +86,21 @@ namespace RFBCodeWorks.CachedRoboCopy
 
         #region < Events >
 
-        #region < FileCopyProgressUpdated >
+        #region < CopyProgressUpdated >
 
         /// <summary>
         /// Delegate for the FileCopyProgressUpdated event
         /// </summary>
-        public delegate void FileCopyProgressUpdatedHandler(object sender, FileCopyProgressUpdatedEventArgs e);
+        public delegate void CopyProgressUpdatedEventHandler(object sender, FileCopyProgressUpdatedEventArgs e);
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public event FileCopyProgressUpdatedHandler FileCopyProgressUpdated;
+        /// <inheritdoc cref="IFileCopier.CopyProgressUpdated"/>
+        public event CopyProgressUpdatedEventHandler CopyProgressUpdated;
 
         /// <summary> Raises the FileCopyProgressUpdated event </summary>
         protected virtual void OnFileCopyProgressUpdated(double progress)
         {
             this.Progress = progress;
-            FileCopyProgressUpdated?.Invoke(this, new FileCopyProgressUpdatedEventArgs(progress, Source, Destination, RoboSharpFileInfo, RoboSharpDirectoryInfo));
+            CopyProgressUpdated?.Invoke(this, new FileCopyProgressUpdatedEventArgs(progress, Source, Destination, RoboSharpFileInfo, RoboSharpDirectoryInfo));
         }
 
         
@@ -113,17 +111,15 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary>
         /// Delegate for the FileCopyCompleted event
         /// </summary>
-        public delegate void FileCopyCompletedHandler(object sender, FileCopyCompletedEventArgs e);
+        public delegate void CopyCompletedEventHandler(object sender, FileCopyCompletedEventArgs e);
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public event FileCopyCompletedHandler FileCopyCompleted;
+        /// <inheritdoc cref="IFileCopier.CopyCompleted"/>
+        public event CopyCompletedEventHandler CopyCompleted;
 
         /// <summary> Raises the FileCopyCompleted event </summary>
         protected virtual void OnFileCopyCompleted()
         {
-            FileCopyCompleted?.Invoke(this, new FileCopyCompletedEventArgs(Source, Destination, StartDate, EndDate, RoboSharpFileInfo, RoboSharpDirectoryInfo));
+            CopyCompleted?.Invoke(this, new FileCopyCompletedEventArgs(Source, Destination, StartDate, EndDate, RoboSharpFileInfo, RoboSharpDirectoryInfo));
         }
 
         #endregion
@@ -133,17 +129,15 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary>
         /// Delegate for the FileCopyFailed event
         /// </summary>
-        public delegate void FileCopyFailedHandler(object sender, FileCopyFailedEventArgs e);
+        public delegate void CopyFailedEventHandler(object sender, FileCopyFailedEventArgs e);
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public event FileCopyFailedHandler FileCopyFailed;
+        /// <inheritdoc cref="IFileCopier.CopyFailed"/>
+        public event CopyFailedEventHandler CopyFailed;
 
         /// <summary> Raises the FileCopyFailed event </summary>
-        protected virtual void OnFileCopyFailed(string error = "",  bool cancelled = false, bool failed = false)
+        protected virtual void OnFileCopyFailed(string error = "", Exception e = null, bool cancelled = false, bool failed = false)
         {
-            FileCopyFailed?.Invoke(this, new FileCopyFailedEventArgs(this, error, failed, cancelled));
+            CopyFailed?.Invoke(this, new FileCopyFailedEventArgs(this, error, e, failed, cancelled));
         }
 
         #endregion
@@ -327,8 +321,9 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// Run the Copy Operation
         /// </summary>
         /// <param name="overWrite"></param>
+        /// <param name="RaiseFailedEvent">TRUE to raise the Failed event after an exception from copying</param>
         /// <returns>True if the file was copied successfully, otherwise false</returns>
-        private Task<bool> RunCopyOperation(bool overWrite)
+        private Task<bool> RunCopyOperation(bool overWrite, bool RaiseFailedEvent)
         {
             if (!overWrite && File.Exists(Destination.FullName))
             {
@@ -370,8 +365,11 @@ namespace RFBCodeWorks.CachedRoboCopy
                {
                    if (WasCancelled)
                        OnFileCopyFailed("Copy Operation Cancelled", cancelled: true);
-                   else
-                       OnFileCopyFailed("Copy Operation Failed", failed: true);
+                   else if (RaiseFailedEvent)
+                   {
+                       string copyFailedMessage = result.Exception == null ? "Copy Operation Failed" : result.Exception.Message;
+                       OnFileCopyFailed(copyFailedMessage, result.Exception, failed: true);
+                   }
                }
                return completed;
            }, TaskContinuationOptions.LongRunning);
@@ -402,6 +400,8 @@ namespace RFBCodeWorks.CachedRoboCopy
         }
 
         #endregion
+
+        #region < Cancel >
 
         /// <summary>
         /// Determine if the copy operation can currently be cancelled
@@ -440,11 +440,9 @@ namespace RFBCodeWorks.CachedRoboCopy
             }
         }
 
-        /// <summary>
-        /// Check if the destination is newer than the source
-        /// </summary>
-        /// <returns>TRUE if the destination exists and is newer, otherwrise false</returns>
-        public bool IsDestinationNewer() => Destination.Exists && Destination.LastWriteTime > Source.LastWriteTime;
+        #endregion
+
+        #region < Copy >
 
         /// <summary>
         /// Create a task that copies the file to the destination
@@ -453,7 +451,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         public Task<bool> Copy(bool overwrite = true)
         {
             if (disposedValue) throw new ObjectDisposedException(nameof(FileCopier));
-            return RunCopyOperation(overwrite);
+            return RunCopyOperation(overwrite, true);
         }
 
         /// <summary>
@@ -463,31 +461,36 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <param name="options">retry options</param>
         /// <param name="SetAttributes">
         /// Action that will set the file attributes to to the file after it has been copied/moved
-        /// <br/> For example: <see cref="SourceDestinationEvaluator.ApplyAttributes(FileInfo)"/>
+        /// <br/> For example: <see cref="PairEvaluator.ApplyAttributes(FileInfo)"/>
         /// </param>
         public async Task<bool> Copy(RetryOptions options, Action<FileInfo> SetAttributes = null)
         {
             if (disposedValue) throw new ObjectDisposedException(nameof(FileCopier));
             int tries = 0;
-            TryAgain:
+        TryAgain:
             try
             {
                 tries++;
-                bool copied = await Copy(true);
+                bool copied = await RunCopyOperation(true, false);
                 if (copied && SetAttributes != null)
                     SetAttributes(Destination);
                 return copied;
             }
-            catch(Exception e)
+            catch when (!WasCancelled && tries < options.RetryCount)
             {
-                if (tries < options.RetryCount)
-                {
-                    await Task.Delay(options.GetWaitTime());
-                    goto TryAgain;
-                }
-                throw e;
+                await Task.Delay(options.GetWaitTime());
+                goto TryAgain;
+            }
+            catch (Exception e)
+            {
+                OnFileCopyFailed(e.Message, e, failed: true);
+                return false;
             }
         }
+
+        #endregion
+
+        #region < Move >
 
         /// <summary>
         /// Moves the file, trying multiple times per the <paramref name="options"/>
@@ -498,23 +501,27 @@ namespace RFBCodeWorks.CachedRoboCopy
         {
             if (disposedValue) throw new ObjectDisposedException(nameof(FileCopier));
             int tries = 0;
+            bool moved = false;
         TryAgain:
             try
             {
                 tries++;
-                bool moved = await Move(true);
+                if (!moved)
+                    moved = await Move(true, false);
+        
                 if (moved && SetAttributes != null)
                     SetAttributes(Destination);
                 return moved;
             }
-            catch (Exception e)
+            catch when (!WasCancelled && tries < options.RetryCount)
             {
-                if (tries < options.RetryCount)
-                {
-                    await Task.Delay(options.GetWaitTime());
-                    goto TryAgain;
-                }
-                throw e;
+                await Task.Delay(options.GetWaitTime());
+                goto TryAgain; 
+            }
+            catch(Exception e) when (!WasCancelled)
+            {
+                OnFileCopyFailed(e.Message, e, failed: true);
+                return false;
             }
         }
 
@@ -524,11 +531,22 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <inheritdoc cref="RunCopyOperation"/>
         public Task<bool> Move(bool overWrite = true)
         {
+            return Move(overWrite, true);
+        }
+
+        
+        private async Task<bool> Move(bool overWrite, bool RaiseFailedEvent)
+        {
             if (disposedValue) throw new ObjectDisposedException(nameof(FileCopier));
             if (File.Exists(Destination.FullName) && !overWrite)
             {
-                OnFileCopyFailed("Destination file already exists", failed: true);
-                return Task.FromResult(false);
+                if (RaiseFailedEvent) OnFileCopyFailed("Destination file already exists", failed: true);
+                return false;
+            }
+            if (!File.Exists(Source.FullName))
+            {
+                if (RaiseFailedEvent) OnFileCopyFailed("Source does not exist", failed: true);
+                return false;
             }
 
             //Check if Source & Destination are on same physical drive
@@ -543,57 +561,53 @@ namespace RFBCodeWorks.CachedRoboCopy
                 bool copied = false;
                 try
                 {
-                    Destination.Delete();
+                    if (File.Exists(Destination.FullName)) Destination.Delete();
                     File.Move(Source.FullName, Destination.FullName);
+                    copied = true;
                 }
-                catch (Exception e)
+                catch (Exception e) when (RaiseFailedEvent)
                 {
                     EndDate = DateTime.Now;
-                    OnFileCopyFailed(e.Message, failed: true);
+                    OnFileCopyFailed(e.Message, e, failed: true);
                 }
                 finally
                 {
                     IsCopying = false;
                     IsCopied = copied;
-                    EndDate = DateTime.Now;
-                    Source.Refresh();
-                    Destination.Refresh();
                     if (copied)
                     {
+                        EndDate = DateTime.Now;
+                        Source.Refresh();
+                        Destination.Refresh();
                         OnFileCopyProgressUpdated(100);
                         OnFileCopyCompleted();
                     }
                 }
-                return Task.FromResult(copied);
+                return copied;
             }
 
             //Source/Dest on different drives : Copy with progress
-            bool wasSuccess = false;
-            this.FileCopyCompleted += CompletedSucessfully;
-            return RunCopyOperation(overWrite).ContinueWith(MoveContinuationTask);
-            
-            //Handlers
-            void CompletedSucessfully(object sender, EventArgs e) => wasSuccess = true;
-
-            bool MoveContinuationTask(Task<bool> copyTask)
+            var copyTask = RunCopyOperation(overWrite, RaiseFailedEvent);
+            bool wasSuccess = await copyTask;
+            if (WasCancelled) return wasSuccess;
+            if (wasSuccess && IsCopied && !copyTask.IsFaulted)
             {
-                this.FileCopyCompleted -= CompletedSucessfully;
-                if (wasSuccess)
-                    if (IsCopied && !copyTask.IsFaulted)
-                        try
-                        {
-                            Source.Delete();
-                        }
-                        catch(Exception e)
-                        {
-                            OnFileCopyFailed($"Deletion of Source File Failed -- {Source.FullName}{Environment.NewLine}{e.Message}");
-                        }
+                try
+                {
+                    Source.Delete();
+                }
+                catch (Exception e) when (RaiseFailedEvent)
+                {
+                    OnFileCopyFailed($"Deletion of Source File Failed -- {Source.FullName}{Environment.NewLine}{e.Message}");
+                }
                 Source.Refresh();
-                return wasSuccess;
             }
+            return wasSuccess;
         }
 
+        #endregion
 
+        #region < Dispose >
 
         /// <inheritdoc/>
         protected virtual void Dispose(bool disposing)
@@ -633,5 +647,6 @@ namespace RFBCodeWorks.CachedRoboCopy
             GC.SuppressFinalize(this);
         }
 
+        #endregion
     }
 }

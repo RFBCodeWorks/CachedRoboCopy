@@ -190,6 +190,10 @@ namespace RFBCodeWorks.CachedRoboCopy.CopyFileEx
         /// </summary>
         private static bool RunCopyFile(string sourceFile, string destFile, CopyProgressRoutine CopyProgressHandler, ref bool pbCancel, CopyFileFlags flags)
         {
+            //Check for locked file prior to starting the write process
+            using (var stream = File.OpenWrite(destFile))
+                stream.Close();
+
             bool returnVal = CopyFileEx(sourceFile, destFile, CopyProgressHandler ?? DefaultHandler, IntPtr.Zero, ref pbCancel, (int)flags);
 
             //https://docs.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.dllimportattribute.setlasterror?view=net-6.0
@@ -226,9 +230,10 @@ namespace RFBCodeWorks.CachedRoboCopy.CopyFileEx
                 case 0x0000000F: throw new DriveNotFoundException("The system cannot find the drive specified.");
                 case 0x00000013: throw new UnauthorizedAccessException("The media is write-protected.");
                 case 0x00000014: throw new DriveNotFoundException("The system cannot find the device specified.");
-                case 0x00000015: throw new Exception("The device is not ready.");
-                case 0x00000027: throw new Exception("The destination disk is full: " + Path.GetPathRoot(destFile));
-                default: throw new Exception(@$"Error Code Reported by CopyFileEx: {errorCode}, see https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/18d8fbe8-a967-4f1c-ae50-99ca8e491d2d for details");
+                case 0x00000015: throw new IOException("The device is not ready.");
+                case 0x00000027: throw new IOException("The destination disk is full: " + Path.GetPathRoot(destFile));
+                case 0x00000032: throw new IOException(); // Occurs when the file is locked
+                default: throw new IOException($"Error Code Reported by CopyFileEx: {errorCode}, see https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/18d8fbe8-a967-4f1c-ae50-99ca8e491d2d for details");
             };
     }
     }

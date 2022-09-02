@@ -15,7 +15,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary>
         /// 
         /// </summary>
-        public FileCopyFailedEventArgs(FileCopier copier, string error, bool failed = true, bool cancelled = false)
+        public FileCopyFailedEventArgs(FileCopier copier, string error, Exception e, bool failed = true, bool cancelled = false)
         {
             Source = copier.Source;
             Destination = copier.Destination;
@@ -23,6 +23,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             //WasSkipped = skipped;
             WasFailed = failed;
             WasCancelled = cancelled;
+            Exception = e;
         }
 
         /// <summary>
@@ -48,9 +49,14 @@ namespace RFBCodeWorks.CachedRoboCopy
 
 
         /// <summary>
-        /// Error Text
+        /// Error Text provided by the caller
         /// </summary>
         public string Error { get; }
+
+        /// <summary>
+        /// The exception that was raised
+        /// </summary>
+        public Exception Exception { get; }
 
     }
 }

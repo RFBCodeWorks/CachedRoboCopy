@@ -12,14 +12,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary>
         /// The full path to the Source Directory to copy files from
         /// </summary>
-        public string SourceDirectoryPath { get; }
+        public string SourceFilePath { get; }
     }
 
-    /// <summary>
-    /// Extension Methods for an IFileSource object
-    /// </summary>
-    public static class IFIleSourceExtensions
-    {
-
-    }
 }

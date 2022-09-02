@@ -39,7 +39,7 @@ namespace RFBCodeWorks.CachedRoboCopy.Tests
         /// </summary>
         /// <param name="useLargerFileSet"></param>
         /// <returns></returns>
-        public static CachedRoboCommand GetCachedRoboCopy(RoboCommand rc)
+        public static CachedRoboCommand GetCachedRoboCopy(IRoboCommand rc)
         {
             var cmd = new CachedRoboCommand();
             cmd.CopyOptions = rc.CopyOptions;
