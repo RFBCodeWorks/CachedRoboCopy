@@ -234,7 +234,7 @@ namespace RFBCodeWorks.CachedRoboCopy.CopyFileEx
                 case 0x00000015: throw new IOException("The device is not ready.");
                 case 0x00000027: throw new IOException("The destination disk is full: " + Path.GetPathRoot(destFile));
                 case 0x00000032: throw new IOException(); // Occurs when the file is locked
-                default: throw new IOException($"Error Code Reported by CopyFileEx: {errorCode}, see https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/18d8fbe8-a967-4f1c-ae50-99ca8e491d2d for details");
+                default: throw new IOException(@$"CopyFileEx Error Code: {errorCode}{Environment.NewLine} See https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/18d8fbe8-a967-4f1c-ae50-99ca8e491d2d for details");
             };
     }
     }
