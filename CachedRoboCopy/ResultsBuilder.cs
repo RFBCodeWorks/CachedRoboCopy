@@ -242,7 +242,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             string Align(int columnSize, long value) => RightAlign(columnSize, value.ToString());
 
             int[] ColSizes = GetColumnSizes();
-            string SummaryLine() => string.Format("\t{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}", "\t", RightAlign(ColSizes[0],"Total"), RightAlign(ColSizes[1], "Copied"), RightAlign(ColSizes[2], "Skipped"), RightAlign(ColSizes[3], "Mismatch"), RightAlign(ColSizes[4], "FAILED"), RightAlign(ColSizes[5], "Extras"));
+            string SummaryLine() => string.Format("\t{0}{1}\t{2}\t{3}\t{4}\t{5}\t{6}", "", RightAlign(ColSizes[0],"Total"), RightAlign(ColSizes[1], "Copied"), RightAlign(ColSizes[2], "Skipped"), RightAlign(ColSizes[3], "Mismatch"), RightAlign(ColSizes[4], "FAILED"), RightAlign(ColSizes[5], "Extras"));
             string Tabulator(string name, IStatistic stat) => string.Format("{0} : {1}\t{2}\t{3}\t{4}\t{5}\t{6}", PadHeader(name), Align(ColSizes[0], stat.Total), Align(ColSizes[1], stat.Copied), Align(ColSizes[2], stat.Skipped), Align(ColSizes[3], stat.Mismatch), Align(ColSizes[4], stat.Failed), Align(ColSizes[5], stat.Extras));
 
             if (IsSummaryCreated) return;
@@ -262,7 +262,12 @@ namespace RFBCodeWorks.CachedRoboCopy
                 WriteToLogs($"\tEnded : {EndTime.ToLongDateString()} {EndTime.ToLongTimeString()}");
                 TimeSpan totalTime = EndTime - StartTime;
                 WriteToLogs($"\tTotal Time: {totalTime.Hours} hours, {totalTime.Minutes} minutes, {totalTime.Seconds}.{totalTime.Milliseconds} seconds");
-                if (!Command.LoggingOptions.ListOnly) WriteToLogs($"\t{AverageSpeed}");
+                if (!Command.LoggingOptions.ListOnly)
+                {
+                    WriteToLogs("");
+                    WriteToLogs($"\tSpeed: {AverageSpeed.GetBytesPerSecond()}");
+                    WriteToLogs($"\tSpeed: { AverageSpeed.GetMegaBytesPerMin()}");
+                }
                 WriteToLogs("");
                 WriteToLogs(Divider);
                 WriteToLogs("");
