@@ -131,6 +131,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                        {
                            if (logExtras & !purgeExtras)
                            {
+                               resultsBuilder.AddFile(f.RoboSharpFileInfo);
                                RaiseFileProcessed(f);
                            }
                            if (purgeExtras)
@@ -171,7 +172,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                                        f.CopyProgressUpdated += FileCopyProgressUpdated;
                                        f.CopyFailed += FileCopyFailed;
                                        f.CopyCompleted += FileCopyCompleted;
-                                       resultsBuilder.ProgressEstimator.SetCopyOpStarted(); // Mark as starting the copy operation
+                                       resultsBuilder.SetCopyOpStarted(f.RoboSharpFileInfo); // Mark as starting the copy operation
                                        Task copyTask;
                                        if (move)
                                            copyTask = f.Move(RetryOptions, evaluator.ApplyAttributes);
@@ -200,8 +201,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                    //Adds the file to the results builder and raises the event
                    void RaiseFileProcessed(FileCopier f)
                    {
-                       resultsBuilder.AddFile(f.RoboSharpFileInfo);
-                       RaiseOnFileProcessed(f.RoboSharpFileInfo);
+                       base.RaiseOnFileProcessed(f.RoboSharpFileInfo);
                    }
 
                    void FileCopyCompleted(object sender, FileCopyCompletedEventArgs e)
