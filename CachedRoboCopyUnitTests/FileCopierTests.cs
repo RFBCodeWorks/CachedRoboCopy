@@ -1,84 +1,70 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using RFBCodeWorks.CachedRoboCopy;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
+using RoboSharp.Extensions;
+using RFBCodeWorks.CachedRoboCopy;
 
 namespace RFBCodeWorks.CachedRoboCopy.Tests
 {
     [TestClass()]
     public class FileCopierTests
     {
+
+        string SourcePath => Path.Combine(TestPrep.CopyFileExTestSourcePath, @"TestFileSource.txt");
+        string DestPath => Path.Combine(TestPrep.DestDirPath, @"TestFileDest.txt");
+
+        [TestInitialize]
+        public void TestInit()
+        {
+            Directory.CreateDirectory(TestPrep.SourceDirPath);
+            File.WriteAllText(SourcePath, "THIS IS A FUN FILE");
+        }
+
+        [TestCleanup]
+        public void TestCleanup()
+        {
+            TestPrep.CleanDestination();
+        }
+
+        private FileCopier GetFileCopier() => new FileCopier(SourcePath, DestPath);
+
+
+        [TestMethod()]
+        public void CopyTest()
+        {
+            var copier = GetFileCopier();
+            bool copySuccess = false; ;
+            copier.CopyCompleted += (o, e) => copySuccess = true;
+            copier.Copy().Wait();
+            Assert.IsTrue(copySuccess);
+        }
+
         //[TestMethod()]
-        //public void FileCopierTest()
+        //public void UpdateTest()
         //{
-        //    Assert.Fail();
+        //    throw new NotImplementedException();
         //}
 
         //[TestMethod()]
-        //public void FileCopierTest1()
+        //public void Copy_ExcludeNewerTest()
         //{
-        //    Assert.Fail();
+        //    throw new NotImplementedException();
         //}
 
         //[TestMethod()]
-        //public void FileCopierTest2()
+        //public void Copy_ExcludeOlderTest()
         //{
-        //    Assert.Fail();
-        //}
-
-        //[TestMethod()]
-        //public void FileCopierTest3()
-        //{
-        //    Assert.Fail();
-        //}
-
-        //[TestMethod()]
-        //public void CanCancelTest()
-        //{
-        //    Assert.Fail();
-        //}
-
-        //[TestMethod()]
-        //public void CanStartTest()
-        //{
-        //    Assert.Fail();
-        //}
-
-        //[TestMethod()]
-        //public void CancelTest()
-        //{
-        //    Assert.Fail();
-        //}
-
-        //[TestMethod()]
-        //public void CancelAfterTest()
-        //{
-        //    Assert.Fail();
-        //}
-
-        //[TestMethod()]
-        //public void IsDestinationNewerTest()
-        //{
-        //    Assert.Fail();
-        //}
-
-        //[TestMethod()]
-        //public void CopyTest()
-        //{
-        //    Assert.Fail();
+        //    throw new NotImplementedException();
         //}
 
         //[TestMethod()]
         //public void MoveTest()
         //{
-        //    Assert.Fail();
-        //}
-
-        //[TestMethod()]
-        //public void DisposeTest()
-        //{
-        //    Assert.Fail();
+        //    throw new NotImplementedException();
         //}
     }
 }

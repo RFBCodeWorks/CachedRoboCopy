@@ -221,6 +221,8 @@ namespace RFBCodeWorks.CachedRoboCopy.CopyFileEx
         {
             switch(errorCode)
             {
+                case 0x00000050: //File already exists (occurs if Prevent file copy is exists flag is set)
+                case 0x000004D3: // Cancelled
                 case 0: return;
                 case 1: throw new InvalidOperationException("Invalid Operation");
                 case 2: throw new FileNotFoundException(message: "Unable to locate the file", fileName: sourceFile);
@@ -232,8 +234,10 @@ namespace RFBCodeWorks.CachedRoboCopy.CopyFileEx
                 case 0x00000013: throw new UnauthorizedAccessException("The media is write-protected.");
                 case 0x00000014: throw new DriveNotFoundException("The system cannot find the device specified.");
                 case 0x00000015: throw new IOException("The device is not ready.");
+                case 0x00000021: throw new IOException("The process cannot access the file because another process has locked a portion of the file.");
                 case 0x00000027: throw new IOException("The destination disk is full: " + Path.GetPathRoot(destFile));
                 case 0x00000032: throw new IOException(); // Occurs when the file is locked
+                //case 0x00000033: throw new IOException("Windows cannot find the network path. Verify that the network path is correct and the destination computer is not busy or turned off. If Windows still cannot find the network path, contact your network administrator.");
                 default: throw new IOException(@$"CopyFileEx Error Code: {errorCode}{Environment.NewLine} See https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/18d8fbe8-a967-4f1c-ae50-99ca8e491d2d for details");
             };
     }
