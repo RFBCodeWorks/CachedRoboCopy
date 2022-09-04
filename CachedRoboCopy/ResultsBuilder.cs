@@ -88,6 +88,16 @@ namespace RFBCodeWorks.CachedRoboCopy
         }
 
         /// <summary>
+        /// Adds the file to the ProgressEstimator, then sets that the copy operation is started
+        /// </summary>
+        /// <param name="file"></param>
+        public virtual void SetCopyOpStarted(ProcessedFileInfo file)
+        {
+            ProgressEstimator.AddFile(file);
+            ProgressEstimator.SetCopyOpStarted();
+        }
+
+        /// <summary>
         /// Mark an file as Copied
         /// </summary>
         /// <param name="file"></param>
@@ -184,7 +194,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                 WriteToLogs("");
                 WriteToLogs($"{PadHeader("Started")} : {StartTime.ToLongDateString()} {StartTime.ToLongTimeString()}");
                 WriteToLogs($"{PadHeader("Source")} : {Command.CopyOptions.Source}");
-                WriteToLogs($"{PadHeader("Dest")} : {Command.CopyOptions.Source}");
+                WriteToLogs($"{PadHeader("Dest")} : {Command.CopyOptions.Destination}");
                 WriteToLogs("");
                 if (Command.CopyOptions.FileFilter.Any())
                     WriteToLogs($"{PadHeader("Files")} : {String.Concat(Command.CopyOptions.FileFilter.Select(filter => filter + " "))}");
@@ -242,7 +252,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             string Align(int columnSize, long value) => RightAlign(columnSize, value.ToString());
 
             int[] ColSizes = GetColumnSizes();
-            string SummaryLine() => string.Format("\t{0}{1}\t{2}\t{3}\t{4}\t{5}\t{6}", "", RightAlign(ColSizes[0],"Total"), RightAlign(ColSizes[1], "Copied"), RightAlign(ColSizes[2], "Skipped"), RightAlign(ColSizes[3], "Mismatch"), RightAlign(ColSizes[4], "FAILED"), RightAlign(ColSizes[5], "Extras"));
+            string SummaryLine() => string.Format("    {0}{1}\t{2}\t{3}\t{4}\t{5}\t{6}", PadHeader(""), RightAlign(ColSizes[0],"Total"), RightAlign(ColSizes[1], "Copied"), RightAlign(ColSizes[2], "Skipped"), RightAlign(ColSizes[3], "Mismatch"), RightAlign(ColSizes[4], "FAILED"), RightAlign(ColSizes[5], "Extras"));
             string Tabulator(string name, IStatistic stat) => string.Format("{0} : {1}\t{2}\t{3}\t{4}\t{5}\t{6}", PadHeader(name), Align(ColSizes[0], stat.Total), Align(ColSizes[1], stat.Copied), Align(ColSizes[2], stat.Skipped), Align(ColSizes[3], stat.Mismatch), Align(ColSizes[4], stat.Failed), Align(ColSizes[5], stat.Extras));
 
             if (IsSummaryCreated) return;
