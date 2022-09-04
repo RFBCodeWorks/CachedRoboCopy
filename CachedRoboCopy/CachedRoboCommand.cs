@@ -60,12 +60,8 @@ namespace RFBCodeWorks.CachedRoboCopy
             {
                 if (TopLevelDirectory is null || CopyOptions.Source != TopLevelDirectory.Source.FullName | CopyOptions.Destination != TopLevelDirectory.Destination.FullName)
                 {
-                    TopLevelDirectory = new DirectoryCopier(CopyOptions.Source, CopyOptions.Destination);
-                    if (TopLevelDirectory.Destination.Exists)
-                        TopLevelDirectory.DirectoryClass = DirectoryClasses.ExistingDir;
-                    else
-                        TopLevelDirectory.DirectoryClass = DirectoryClasses.NewDir;
-
+                    TopLevelDirectory = new DirectoryCopier(CopyOptions.Source, CopyOptions.Destination, evaluator);
+                    SetTopLevelDirInfo();
                     TopLevelDirectory.RoboSharpInfo = new ProcessedFileInfo(TopLevelDirectory.Source, Configuration, TopLevelDirectory.DirectoryClass);
                     TopLevelDirectory.ShouldExclude_JunctionDirectory = false;
                     TopLevelDirectory.ShouldExclude_NamedDirectory = false;
@@ -73,6 +69,20 @@ namespace RFBCodeWorks.CachedRoboCopy
                 else if (listOnly)
                 {
                     TopLevelDirectory.Refresh();
+                    SetTopLevelDirInfo();
+                }
+                else
+                {
+                    TopLevelDirectory.RoboSharpInfo?.SetDirectoryClass(DirectoryClasses.ExistingDir, this.Configuration);
+                }
+                
+                void SetTopLevelDirInfo()
+                {
+                    if (!TopLevelDirectory.Destination.Exists)
+                        TopLevelDirectory.DirectoryClass = DirectoryClasses.NewDir;
+                    else
+                        TopLevelDirectory.DirectoryClass = DirectoryClasses.ExistingDir;
+                    TopLevelDirectory.RoboSharpInfo?.SetDirectoryClass(TopLevelDirectory.DirectoryClass, this.Configuration);
                 }
             }
             catch(Exception e)
@@ -86,7 +96,13 @@ namespace RFBCodeWorks.CachedRoboCopy
             var resultsBuilder = new ResultsBuilder(this);
             base.IProgressEstimator = resultsBuilder.ProgressEstimator;
             RaiseOnProgressEstimatorCreated(base.IProgressEstimator);
-            
+
+            if (CopyOptions.MultiThreadedCopiesCount > 0)
+            {
+                LoggingOptions.NoDirectoryList = true;
+                LoggingOptions.IncludeFullPathNames = true;
+            }
+
             bool mirror = CopyOptions.Mirror;
             bool includeEmptyDirs = mirror | CopyOptions.CopySubdirectoriesIncludingEmpty;
             bool includeSubDirs = includeEmptyDirs | CopyOptions.CopySubdirectories;
@@ -94,7 +110,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             bool purgeExtras = !SelectionOptions.ExcludeExtra && (mirror | CopyOptions.Purge);
             bool verbose = LoggingOptions.VerboseOutput;
             bool logExtras = verbose || !SelectionOptions.ExcludeExtra | LoggingOptions.ReportExtraFiles;
-            bool logSkipped = verbose | LoggingOptions.ReportExtraFiles;
+            bool logSkipped = verbose;
 
             var RunTask = Task.Factory.StartNew(async () =>
            {
@@ -111,16 +127,17 @@ namespace RFBCodeWorks.CachedRoboCopy
 
                    RaiseDirProcessed(dir);
                    if (!listOnly) dir.Destination.Create();
+                   resultsBuilder.ProgressEstimator.AddDirCopied(dir.RoboSharpInfo);
 
                    //Process all files in this directory
-                   foreach (var f in evaluator.FilterFilePairs(dir.Files))
+                   foreach (var f in dir.Files)
                    {
                        if (CancellationTokenSource.IsCancellationRequested) break;
 
                        //Generate the ProcessedFileInfo objects
                        if (f.RoboSharpFileInfo is null)
                        {
-                           bool shouldCopy = evaluator.ShouldCopyFile(f, out var info);
+                           bool shouldCopy = evaluator.ShouldCopyFile(f, out var info) && evaluator.ShouldIncludeFileName(f);
                            f.RoboSharpFileInfo = info;
                            f.ShouldCopy = shouldCopy;
                            f.RoboSharpDirectoryInfo = dir.RoboSharpInfo;

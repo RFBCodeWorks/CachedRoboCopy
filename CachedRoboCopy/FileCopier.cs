@@ -59,6 +59,9 @@ namespace RFBCodeWorks.CachedRoboCopy
             Destination = destination;
         }
 
+        /// <inheritdoc cref="FileCopier.FileCopier(FileInfo, FileInfo)"/>
+        public static FileCopier CreateNew(FileInfo source, FileInfo destination) => new FileCopier(source, destination);
+
         /// <summary>
         /// Create a new RoboMoverItem by supplied file paths
         /// </summary>

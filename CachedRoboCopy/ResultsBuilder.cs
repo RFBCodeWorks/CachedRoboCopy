@@ -48,7 +48,9 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// Used to calculate the average speed, and is supplied to the results object when getting results.
         /// </summary>
         public AverageSpeedStatistic AverageSpeed { get; } = new();
-        
+
+        private bool AnyFilesCopied;
+
         /// <summary>
         /// The time the ResultsBuilder was instantiated
         /// </summary>
@@ -95,6 +97,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         {
             ProgressEstimator.AddFile(file);
             ProgressEstimator.SetCopyOpStarted();
+            AnyFilesCopied = true;
         }
 
         /// <summary>
@@ -104,6 +107,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         public virtual void AddFileCopied(ProcessedFileInfo file)
         {
             ProgressEstimator.AddFileCopied(file);
+            AnyFilesCopied = true;
             LogFileInfo(file, " -- OK");
         }
 
@@ -138,16 +142,22 @@ namespace RFBCodeWorks.CachedRoboCopy
 
         #region < Add Dirs >
 
+        private ProcessedFileInfo LastDir;
+
+
         /// <summary>
         /// Add a directory to the 
         /// </summary>
-        /// <param name="file"></param>
-        public void AddDir(ProcessedFileInfo file)
+        public void AddDir(ProcessedFileInfo dir)
         {
-            ProgressEstimator.AddDir(file);
+            if (AnyFilesCopied) 
+                ProgressEstimator.AddDirCopied(LastDir);
+            AnyFilesCopied = false;
+            LastDir = dir;
+            ProgressEstimator.AddDir(dir);
             //Check to log the directory listing
             if (!Command.LoggingOptions.NoDirectoryList)
-                WriteToLogs(file.ToString(Command.LoggingOptions));
+                WriteToLogs(dir.ToString(Command.LoggingOptions));
         }
 
         #endregion
@@ -308,6 +318,8 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// </summary>
         public virtual RoboCopyResults GetResults()
         {
+            if (AnyFilesCopied) ProgressEstimator.AddDirCopied(LastDir);
+            AnyFilesCopied = false;
             CreateSummary();
             return ProgressEstimator.GetResults(StartTime, EndTime < StartTime ? DateTime.Now :EndTime, AverageSpeed, LogLines.ToArray());
         }
