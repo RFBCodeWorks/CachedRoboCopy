@@ -1,16 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
-
+    <TargetFrameworks>
+        netstandard2.0;
+        netstandard2.1;
+        netcoreapp3.1;
+        net472;
+        net5.0-windows
+    </TargetFrameworks>
+    <LangVersion>9</LangVersion>
     <IsPackable>false</IsPackable>
-
     <RootNamespace>RFBCodeWorks.CachedRoboCopy.Tests</RootNamespace>
-
     <ApplicationIcon />
-
     <OutputType>Library</OutputType>
-
     <StartupObject />
   </PropertyGroup>
 
