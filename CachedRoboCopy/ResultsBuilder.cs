@@ -117,8 +117,17 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <param name="file"></param>
         public virtual void AddFileSkipped(ProcessedFileInfo file)
         {
-            ProgressEstimator.AddFile(file);
+            ProgressEstimator.AddFileSkipped(file);
             LogFileInfo(file, " -- Skipped");
+        }
+
+        /// <summary>
+        /// Mark an file as FAILED
+        /// </summary>
+        public virtual void AddFileFailed(ProcessedFileInfo file)
+        {
+            ProgressEstimator.AddFileFailed(file);
+            LogFileInfo(file, " -- FAILED");
         }
 
         /// <summary>
@@ -150,8 +159,6 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// </summary>
         public void AddDir(ProcessedFileInfo dir)
         {
-            if (AnyFilesCopied) 
-                ProgressEstimator.AddDirCopied(LastDir);
             AnyFilesCopied = false;
             LastDir = dir;
             ProgressEstimator.AddDir(dir);
@@ -318,7 +325,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// </summary>
         public virtual RoboCopyResults GetResults()
         {
-            if (AnyFilesCopied) ProgressEstimator.AddDirCopied(LastDir);
+            //if (AnyFilesCopied) ProgressEstimator.AddDirCopied(LastDir);
             AnyFilesCopied = false;
             CreateSummary();
             return ProgressEstimator.GetResults(StartTime, EndTime < StartTime ? DateTime.Now :EndTime, AverageSpeed, LogLines.ToArray());

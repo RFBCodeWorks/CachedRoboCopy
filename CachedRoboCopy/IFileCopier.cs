@@ -53,6 +53,9 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <inheritdoc cref="FileCopier.RoboSharpDirectoryInfo"/>
         public ProcessedFileInfo RoboSharpDirectoryInfo { get; set; }
 
+        /// <inheritdoc cref="FileCopier.RetryOptions"/>
+        public RetryOptions RetryOptions { get; set; }
+
         #endregion
 
         #region < Methods >
@@ -65,10 +68,10 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// Task that completes when the operation is either successfull, or fails. <br/>
         /// A TRUE result means copy operation performed successfully, FALSE means file was not copied.
         /// </returns>
-        public Task<bool> Copy(bool overWrite = true);
+        public Task<bool> Copy(bool overWrite = false);
 
-        /// <inheritdoc cref="FileCopier.Copy(RetryOptions, Action{System.IO.FileInfo})"/>
-        public Task<bool> Copy(RetryOptions options, Action<FileInfo> SetAttributes = null);
+        /// <inheritdoc cref="FileCopier.Copy(bool)"/>
+        public Task<bool> Copy(bool overWrite, Action<FileInfo> SetAttributes = null);
 
         /// <summary>
         /// Move the File(s) to their destination
@@ -78,10 +81,10 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// Task that completes when the operation is either successfull, or fails. <br/>
         /// A TRUE result means move operation performed successfully, FALSE means file was not moved.
         /// </returns>
-        public Task<bool> Move(bool overWrite = true);
+        public Task<bool> Move(bool overWrite = false);
 
-        /// <inheritdoc cref="FileCopier.Move(RetryOptions, Action{FileInfo})"/>
-        public Task<bool> Move(RetryOptions options, Action<FileInfo> SetAttributes = null);
+        /// <inheritdoc cref="FileCopier.Move(bool, Action{FileInfo})"/>
+        public Task<bool> Move(bool overWrite, Action<FileInfo> SetAttributes = null);
 
         /// <summary>
         /// Cancel the Copy/Move Operation
