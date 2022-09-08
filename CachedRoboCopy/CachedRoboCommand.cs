@@ -15,8 +15,19 @@ using System.Collections.Concurrent;
 namespace RFBCodeWorks.CachedRoboCopy
 {
     /// <summary>
-    /// Iterate through the directories to move the directories and files quicker than RoboCopy does
+    /// Custom implementation of the <see cref="IRoboCommand"/> interface that mimicks RoboCopy.<br/>
+    /// Note: <see cref="RoboCommand"/> is still recommended over this for most use cases. 
     /// </summary>
+    /// <remarks>
+    /// Key differences include: 
+    /// <br/> - <see cref="CopyOptions.MultiThreadedCopiesCount"/> is suggested to be 4. Default of 0 or 1 means only 1 file copied at a time.
+    /// <br/> - If you are doing server to server copies, this is not recommended, as all data passes through application running this process ( same as <see cref="CopyOptions.DoNotUseWindowsCopyOffload"/> )
+    /// <br/> <br/> Various features not currently implemented (due to low-level access that RoboCopy has that this does not), including but not limited to: 
+    /// <br/> - <see cref="SelectionOptions"/> are fully implemented
+    /// <br/> - <see cref="LoggingOptions"/> are fully implemented
+    /// <br/> - Most of <see cref="CopyOptions"/> is not implemented. ( FileFilter IS implemented, but the various modes are not implemented, such as <see cref="CopyOptions.CopySymbolicLink"/>, <see cref="CopyOptions.EnableEfsRawMode"/>, etc.
+    /// <br/> - <see cref="RetryOptions"/> are implemented with the exception of <see cref="RetryOptions.WaitForSharenames"/>
+    /// </remarks>
     public class CachedRoboCommand : RoboSharp.Extensions.AbstractCustomIRoboCommand
     {
 

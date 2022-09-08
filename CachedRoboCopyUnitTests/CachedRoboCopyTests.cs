@@ -219,6 +219,9 @@ namespace RFBCodeWorks.CachedRoboCopy.Tests
                 Console.Write("    Files : "); Console.WriteLine(CRCResults.FilesStatistic);
                 Console.Write("    Bytes : "); Console.WriteLine(CRCResults.BytesStatistic);
                 Console.WriteLine(CRCResults.SpeedStatistic);
+                Console.WriteLine("-----------------------------");
+                Console.WriteLine("");
+                Console.WriteLine("");
             }
             catch (Exception e)
             {
