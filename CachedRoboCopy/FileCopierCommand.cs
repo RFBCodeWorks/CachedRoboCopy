@@ -121,6 +121,30 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <param name="copier"></param>
         public void AddCommand(IEnumerable<IFileCopier> copier) => this.FileCopiers.AddRange(copier);
 
+        /// <summary>
+        /// Create a new <see cref="FileCopier"/> and add it to the list
+        /// </summary>
+        /// <inheritdoc cref="FileCopier.FileCopier(string, string)"/>
+        /// <returns>The newly created <see cref="FileCopier"/></returns>
+        public FileCopier AddCommand(string source, string destination)
+        {
+            FileCopier f = new FileCopier(source, destination);
+            this.AddCommand(f);
+            return f;
+        }
+
+        /// <summary>
+        /// Create a new <see cref="FileCopier"/> and add it to the list
+        /// </summary>
+        /// <inheritdoc cref="FileCopier.FileCopier(FileInfo, DirectoryInfo)"/>
+        /// <returns>The newly created <see cref="FileCopier"/></returns>
+        public FileCopier AddCommand(FileInfo source, DirectoryInfo destinationDirectory)
+        {
+            FileCopier f = new FileCopier(source, destinationDirectory);
+            this.AddCommand(f);
+            return f;
+        }
+
         /// <inheritdoc/>
         public override Task Start(string domain = "", string username = "", string password = "")
         {
