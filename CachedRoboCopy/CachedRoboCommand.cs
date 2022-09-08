@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using RoboSharp.Extensions;
+using System.Collections.Concurrent;
 
 namespace RFBCodeWorks.CachedRoboCopy
 {
@@ -45,6 +46,13 @@ namespace RFBCodeWorks.CachedRoboCopy
         
         private DirectoryCopier TopLevelDirectory { get; set; }
 
+        //ConcurrentQueue<FileCopier> CopiersInQueue;
+        //ConcurrentQueue<Action> ReadTasks;
+        //ConcurrentQueue<Action> WriteTasks;
+        private ResultsBuilder resultsBuilder;
+        //private List<FileCopier> fileCopiers;
+        private CopyQueue CopyQueue;
+
         /// <inheritdoc/>
         public override Task Start(string domain = "", string username = "", string password = "")
         {
@@ -52,12 +60,14 @@ namespace RFBCodeWorks.CachedRoboCopy
             IsRunning = true;
             IsCancelled = false;
             IsPaused = false;
+            CancellationTokenSource = new();
             bool listOnly = LoggingOptions.ListOnly;
             var evaluator = new PairEvaluator(this);
 
             //Setup the Instance
             try
             {
+                //Setup the TopLevelDirectory
                 if (TopLevelDirectory is null || CopyOptions.Source != TopLevelDirectory.Source.FullName | CopyOptions.Destination != TopLevelDirectory.Destination.FullName)
                 {
                     TopLevelDirectory = new DirectoryCopier(CopyOptions.Source, CopyOptions.Destination, evaluator);
@@ -71,11 +81,17 @@ namespace RFBCodeWorks.CachedRoboCopy
                     TopLevelDirectory.Refresh();
                     SetTopLevelDirInfo();
                 }
-                else
-                {
-                    TopLevelDirectory.RoboSharpInfo?.SetDirectoryClass(DirectoryClasses.ExistingDir, this.Configuration);
-                }
                 
+                //Setup the copy objects
+                if (!listOnly)
+                {
+                    TopLevelDirectory.Destination.Create();
+                    TopLevelDirectory.Destination.Refresh();
+                    TopLevelDirectory.RoboSharpInfo?.SetDirectoryClass(DirectoryClasses.ExistingDir, this.Configuration);
+                    
+                    CopyQueue = new CopyQueue(this, this.CancellationTokenSource.Token) { SetAttributesAction = evaluator.ApplyAttributes };
+                }
+
                 void SetTopLevelDirInfo()
                 {
                     if (!TopLevelDirectory.Destination.Exists)
@@ -89,11 +105,14 @@ namespace RFBCodeWorks.CachedRoboCopy
             {
                 RaiseOnCommandError(e);
                 IsRunning = false;
+                CancellationTokenSource.Cancel();
+                CancellationTokenSource.Dispose();
+                CancellationTokenSource = null;
                 return Task.CompletedTask;
             }
 
-            CancellationTokenSource = new();
-            var resultsBuilder = new ResultsBuilder(this);
+            
+            resultsBuilder = new ResultsBuilder(this);
             base.IProgressEstimator = resultsBuilder.ProgressEstimator;
             RaiseOnProgressEstimatorCreated(base.IProgressEstimator);
 
@@ -101,6 +120,10 @@ namespace RFBCodeWorks.CachedRoboCopy
             {
                 LoggingOptions.NoDirectoryList = true;
                 LoggingOptions.IncludeFullPathNames = true;
+
+                // If multithreading is enabled, RoboCopy adds 1 to the COPIED segment even if the root directory doesn't need to be created. Without this, results unit tests fail.
+                resultsBuilder.ProgressEstimator.AddDir(TopLevelDirectory.RoboSharpInfo);
+                resultsBuilder.ProgressEstimator.AddDirCopied(TopLevelDirectory.RoboSharpInfo);
             }
 
             bool mirror = CopyOptions.Mirror;
@@ -112,13 +135,14 @@ namespace RFBCodeWorks.CachedRoboCopy
             bool logExtras = verbose || !SelectionOptions.ExcludeExtra | LoggingOptions.ReportExtraFiles;
             bool logSkipped = verbose;
 
+            
             var RunTask = Task.Factory.StartNew(async () =>
            {
-               List<Task> CopyTasks = new();
-               List<FileCopier> fileCopiers = new();
-
+               
                await Dig(TopLevelDirectory);
+               CopyQueue?.FinalizeQueue();
                await WaitCopyComplete();
+
                return;
 
                async Task Dig(DirectoryCopier dir, int currentDepth = 0)
@@ -126,8 +150,14 @@ namespace RFBCodeWorks.CachedRoboCopy
                    if (CancellationTokenSource.IsCancellationRequested) return;
 
                    RaiseDirProcessed(dir);
-                   if (!listOnly) dir.Destination.Create();
-                   resultsBuilder.ProgressEstimator.AddDirCopied(dir.RoboSharpInfo);
+                   if (!listOnly)
+                   {
+                       if (!dir.Destination.Exists)
+                       {
+                           dir.Destination.Create();
+                           resultsBuilder.ProgressEstimator.AddDirCopied(dir.RoboSharpInfo);
+                       }
+                   }
 
                    //Process all files in this directory
                    foreach (var f in dir.Files)
@@ -185,24 +215,10 @@ namespace RFBCodeWorks.CachedRoboCopy
                                    }
                                    else
                                    {
-                                       fileCopiers.Add(f);
-                                       f.CopyProgressUpdated += FileCopyProgressUpdated;
-                                       f.CopyFailed += FileCopyFailed;
-                                       f.CopyCompleted += FileCopyCompleted;
-                                       resultsBuilder.SetCopyOpStarted(f.RoboSharpFileInfo); // Mark as starting the copy operation
-                                       Task copyTask;
-                                       if (move)
-                                           copyTask = f.Move(RetryOptions, evaluator.ApplyAttributes);
-                                       else
-                                           copyTask = f.Copy(RetryOptions, evaluator.ApplyAttributes);
-
-                                       Task continuation = copyTask.ContinueWith(t =>
-                                       {
-                                           f.CopyProgressUpdated -= FileCopyProgressUpdated;
-                                           f.CopyFailed -= FileCopyFailed;
-                                           f.CopyCompleted -= FileCopyCompleted;
-                                       });
-                                       CopyTasks.Add(continuation);
+                                       f.CopyCompleted += FileCopier_CopyCompleted;
+                                       f.CopyFailed += FileCopier_CopyFailed;
+                                       f.CopyProgressUpdated += FileCopier_CopyProgressUpdated;
+                                       CopyQueue?.AddToQueue(f);
                                    }
                                }
                            }
@@ -210,39 +226,18 @@ namespace RFBCodeWorks.CachedRoboCopy
 
                        //Wait for files to Complete copying
                        while (ShouldWait())
-                           await Task.Delay(100);
+                           await Task.Delay(20);
                    }
 
                    #region < File Copier Helper Routines >
-
-                   //Adds the file to the results builder and raises the event
-                   void RaiseFileProcessed(FileCopier f)
-                   {
-                       base.RaiseOnFileProcessed(f.RoboSharpFileInfo);
-                   }
-
-                   void FileCopyCompleted(object sender, FileCopyCompletedEventArgs e)
-                   {
-                       resultsBuilder.AverageSpeed.Average(e.Speed);
-                       resultsBuilder.AddFileCopied(e.RoboSharpFileInfo);
-                   }
-                   void FileCopyFailed(object sender, FileCopyFailedEventArgs e)
-                   {
-                       if (e.WasFailed)
-                       {
-                           resultsBuilder.AddSystemMessage($"{e.Source} -- FAILED");
-                           RaiseOnError(new RoboSharp.ErrorEventArgs(e.Exception, e.Destination.FullName, DateTime.Now));
-                       }
-                       else if (e.WasCancelled)
-                           resultsBuilder.AddSystemMessage($"{e.Source} -- CANCELLED");
-                   }
 
                    bool ShouldWait()
                    {
                        if (CancellationTokenSource.IsCancellationRequested) return false;
                        if (IsPaused) return true;
-                       if (CopyOptions.MultiThreadedCopiesCount <= 0) return false;
-                       if (CopyTasks.Any() && CopyTasks.Where(t => t.Status < TaskStatus.RanToCompletion).Count() >= CopyOptions.MultiThreadedCopiesCount) return true;
+                       if (CopyOptions.MultiThreadedCopiesCount >= 1) return false; // just queue them all up!
+                       //if (fileCopiers.Any() && fileCopiers.Count() >= CopyOptions.MultiThreadedCopiesCount) return true;
+                       if ((CopyQueue?.AnyInProgress ?? false) && CopyOptions.MultiThreadedCopiesCount < 1) return true;
                        return false;
                    }
 
@@ -250,8 +245,7 @@ namespace RFBCodeWorks.CachedRoboCopy
 
                    // Wait for all files to finish copying before digging further into the directory tree
                    await WaitCopyComplete();
-                   CopyTasks.Clear(); // Clear the buffer since all have finished copying
-
+                   
                    // Process the Directories
                    if (CanDigDeeper())
                    {
@@ -330,25 +324,34 @@ namespace RFBCodeWorks.CachedRoboCopy
                //Await all copy tasks to finish running before moving to the next directory
                async Task WaitCopyComplete()
                {
-                   await CopyTasks.WhenAll(CancellationTokenSource.Token);
-                   if (CancellationTokenSource.IsCancellationRequested)
+                   while (true)
                    {
-
-                       foreach (var f in fileCopiers.Where(o => o.IsCopying))
-                           f.Cancel();
-                       await CopyTasks.WhenAll();
+                       if (CancellationTokenSource.IsCancellationRequested)
+                       {
+                           CopyQueue?.Cancel();
+                       }
+                       else
+                       {
+                           if (CopyQueue?.AnyInProgress ?? false)
+                               await Task.Delay(50);
+                           else
+                               break;
+                       }
                    }
                }
 
            }, TaskCreationOptions.LongRunning).Unwrap();
 
             // Create the Continuation Task that will be returned to the caller
-            var finishTask = RunTask.ContinueWith((runTask) =>
+            var finishTask = RunTask.ContinueWith(async (runTask) =>
             {
                 IsRunning = false;
                 IsPaused = false;
                 CancellationTokenSource?.Cancel();
                 CancellationTokenSource?.Dispose();
+
+                //await WaitForThreads();
+                await (CopyQueue?.GetAwaiter() ?? Task.CompletedTask);
 
                 if (runTask.IsFaulted)
                 {
@@ -357,14 +360,39 @@ namespace RFBCodeWorks.CachedRoboCopy
                 var results = resultsBuilder?.GetResults();
                 base.SaveResults(results);
                 RaiseOnCommandCompleted(results);
-            });
+            }).Unwrap();
             return finishTask;
 
         }
 
+        //Adds the file to the results builder and raises the event
+        void RaiseFileProcessed(FileCopier f)
+        {
+            base.RaiseOnFileProcessed(f.RoboSharpFileInfo);
+        }
 
+        void FileCopier_CopyCompleted(object sender, FileCopyCompletedEventArgs e)
+        {
+            resultsBuilder.AverageSpeed.Average(e.Speed);
+            resultsBuilder.AddFileCopied(e.RoboSharpFileInfo);
+            var copier = sender as FileCopier;
+            copier.CopyProgressUpdated -= FileCopier_CopyProgressUpdated;
+            copier.CopyFailed -= FileCopier_CopyFailed;
+            copier.CopyCompleted -= FileCopier_CopyCompleted;
+        }
 
-        private void FileCopyProgressUpdated(object sender, FileCopyProgressUpdatedEventArgs e)
+        void FileCopier_CopyFailed(object sender, FileCopyFailedEventArgs e)
+        {
+            if (e.WasFailed)
+            {
+                resultsBuilder.AddSystemMessage($"{e.Source} -- FAILED");
+                RaiseOnError(new RoboSharp.ErrorEventArgs(e.Exception, e.Destination.FullName, DateTime.Now));
+            }
+            else if (e.WasCancelled)
+                resultsBuilder.AddSystemMessage($"{e.Source} -- CANCELLED");
+        }
+
+        private void FileCopier_CopyProgressUpdated(object sender, FileCopyProgressUpdatedEventArgs e)
         {
             RaiseOnCopyProgressChanged(e.Progress, e.RoboSharpFileInfo, e.RoboSharpDirInfo);
         }
@@ -376,6 +404,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             {
                 CancellationTokenSource?.Cancel();
                 IsCancelled = true;
+                CopyQueue?.Cancel();
             }
         }
 
@@ -384,6 +413,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         {
             if (IsRunning && !IsPaused)
                 IsPaused = true;
+            CopyQueue?.Pause();
         }
 
         /// <inheritdoc/>
@@ -391,6 +421,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         {
             if (IsRunning && IsPaused)
                 IsPaused = false;
+            CopyQueue?.Resume();
         }
 
         /// <inheritdoc/>
