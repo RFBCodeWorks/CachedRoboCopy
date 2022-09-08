@@ -106,16 +106,19 @@ namespace RFBCodeWorks.CachedRoboCopy.TestApp
 
         #region < Shared Methods >
 
+        private bool WasLastCommandCachedRoboCommand = false;
+
         private IRoboCommand GetCommand(bool BindEvents)
         {
             Debugger.Instance.DebugMessageEvent += DebugMessage;
             bool getCachedCommand = this.GenOption_CachedRoboCommand.IsChecked ?? false;
-
+            bool refreshCommand = getCachedCommand != WasLastCommandCachedRoboCommand;
             IRoboCommand copy;
-            if (this.copy is null || this.copy.CopyOptions.Source != Source.Text | this.copy.CopyOptions.Destination != Destination.Text)
+            if (refreshCommand || this.copy is null || this.copy.CopyOptions.Source != Source.Text | this.copy.CopyOptions.Destination != Destination.Text)
             {
                 copy = getCachedCommand ? (IRoboCommand)new CachedRoboCommand() { Name = JobName.Text } : new RoboCommand() { Name = JobName.Text };
                 this.copy = copy;
+                WasLastCommandCachedRoboCommand = getCachedCommand;
             }
             else
             {
@@ -275,6 +278,12 @@ namespace RFBCodeWorks.CachedRoboCopy.TestApp
 
         void copy_OnCommandCompleted(object sender, RoboCommandCompletedEventArgs e)
         {
+            if (sender is IRoboCommand cmd)
+            {
+                cmd.OnCommandCompleted -= copy_OnCommandCompleted;
+                cmd.OnCommandError -= copy_OnCommandError;
+                cmd.OnError -= copy_OnError;
+            }
             Dispatcher.BeginInvoke((Action)(() =>
             {
                 OptionsGrid.IsEnabled = true;
