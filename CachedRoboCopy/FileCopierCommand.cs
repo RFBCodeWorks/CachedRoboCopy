@@ -138,6 +138,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                 List<Task> queue = new List<Task>();
                 Task copyTask = null;
                 var evaluator = new PairEvaluator(this);
+                CopyQueue copyQueue = LoggingOptions.ListOnly ? null : new CopyQueue(this, CancellationSource.Token);
 
                 bool move = !CopyOptions.Mirror && (CopyOptions.MoveFiles | CopyOptions.MoveFilesAndDirectories);
 
@@ -164,9 +165,10 @@ namespace RFBCodeWorks.CachedRoboCopy
                     copier.Destination.Refresh();
                     evaluator.ShouldCopyFile(copier, out var info);
                     copier.RoboSharpFileInfo = info;
-                    copier.RoboSharpDirectoryInfo = new ProcessedFileInfo(Path.GetDirectoryName(copier.Source.FullName), FileClassType.NewDir, this.Configuration.GetDirectoryClass(DirectoryClasses.ExistingDir), 1);
+                    copier.RoboSharpDirectoryInfo ??= new ProcessedFileInfo(Path.GetDirectoryName(copier.Source.FullName), FileClassType.NewDir, this.Configuration.GetDirectoryClass(DirectoryClasses.ExistingDir), 1);
 
                     resultsBuilder.AddFile(copier.RoboSharpFileInfo);
+                    RaiseOnFileProcessed(copier.RoboSharpFileInfo);
 
                     //Check if it can copy, or if there is a need to copy.
                     bool canCopy = !copier.IsExtra() && (copier.IsLonely() || !(copier.IsSameDate() && copier.Source.Length == copier.Destination.Length));
@@ -174,11 +176,13 @@ namespace RFBCodeWorks.CachedRoboCopy
 
                     if (canCopy)
                     {
+                        
+                        copier.RetryOptions = this.RetryOptions;
                         resultsBuilder.ProgressEstimator.SetCopyOpStarted();
                         if (move)
-                            copyTask = copier.Move(RetryOptions);
+                            copyTask = copier.Move(true, evaluator.ApplyAttributes);
                         else
-                            copyTask = copier.Copy(RetryOptions);
+                            copyTask = copier.Copy(true, evaluator.ApplyAttributes);
                     }
                     else
                         copyTask = Task.FromResult(false);
@@ -214,7 +218,10 @@ namespace RFBCodeWorks.CachedRoboCopy
                 }
 
                 await Task.WhenAll(queue);
-                
+                var results = resultsBuilder.GetResults();
+                SaveResults(results);
+                RaiseOnCommandCompleted(results);
+
             }, CancellationSource.Token);
             
             return moveOp.ContinueWith(MoveOpContinuation);
@@ -246,10 +253,18 @@ namespace RFBCodeWorks.CachedRoboCopy
             {
                 if (e.WasCancelled)
                     resultsBuilder.AddSystemMessage($@"Copy Operation Cancelled --> {e.Destination.FullName}");
-                //else if (e.WasSkipped)
-                //    LogLines.Add($@"Copy Operation Skipped ( {e.Error} )--> {e.Destination.FullName}");
                 else
-                    resultsBuilder.AddSystemMessage($@"Copy Operation Failed --> {e.Destination.FullName}");
+                {
+                    if (sender is IFileCopier f)
+                    {
+                        resultsBuilder.AddFileFailed(f.RoboSharpFileInfo);
+                    }
+                    else
+                    {
+                        resultsBuilder.AddSystemMessage($@"Copy Operation Failed --> {e.Destination.FullName}");
+                    }
+                    RaiseOnError(new RoboSharp.ErrorEventArgs(e.Exception, e.Destination.FullName, DateTime.Now));
+                }
             }
 
             #endregion
