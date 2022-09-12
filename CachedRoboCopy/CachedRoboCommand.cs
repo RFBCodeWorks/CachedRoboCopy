@@ -64,6 +64,12 @@ namespace RFBCodeWorks.CachedRoboCopy
         //private List<FileCopier> fileCopiers;
         private CopyQueue CopyQueue;
 
+        /// <summary>
+        /// Gets the results builder that will be used by the <see cref="Start(string, string, string)"/> method
+        /// </summary>
+        /// <returns></returns>
+        protected virtual ResultsBuilder GetResultsBuilder() { return new(this); }
+
         /// <inheritdoc/>
         public override Task Start(string domain = "", string username = "", string password = "")
         {
@@ -122,8 +128,8 @@ namespace RFBCodeWorks.CachedRoboCopy
                 return Task.CompletedTask;
             }
 
-            
-            resultsBuilder = new ResultsBuilder(this);
+
+            resultsBuilder = GetResultsBuilder();
             base.IProgressEstimator = resultsBuilder.ProgressEstimator;
             RaiseOnProgressEstimatorCreated(base.IProgressEstimator);
 

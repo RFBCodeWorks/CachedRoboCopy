@@ -145,6 +145,12 @@ namespace RFBCodeWorks.CachedRoboCopy
             return f;
         }
 
+        /// <summary>
+        /// Gets the results builder that will be used by the <see cref="Start(string, string, string)"/> method
+        /// </summary>
+        /// <returns></returns>
+        protected virtual ResultsBuilder GetResultsBuilder() { return new(this); }
+
         /// <inheritdoc/>
         public override Task Start(string domain = "", string username = "", string password = "")
         {
@@ -153,7 +159,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             IsCancelled = false;
             IsRunning = true;
             CancellationSource = new CancellationTokenSource();
-            var resultsBuilder = new ResultsBuilder(this);
+            var resultsBuilder = GetResultsBuilder();
             RaiseOnProgressEstimatorCreated(resultsBuilder.ProgressEstimator);
             
 
