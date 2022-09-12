@@ -451,7 +451,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary>
         /// The queue of bytes waiting to be written to disk
         /// </summary>
-        private ConcurrentQueue<Tuple<byte[], int>> BytesReadQueue = new();
+        private ConcurrentQueue<(byte[], int)> BytesReadQueue = new();
         /// <summary>
         /// Evaluate if more can be read, or if the reading should be suspended due to the amount of information waiting to be written
         /// </summary>
@@ -526,7 +526,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                                 }
                                 if (KillReadTask) break;
                                 bytesRead = source.Read((buffer = new byte[bufferSize]), 0, bufferSize);
-                                BytesReadQueue.Enqueue(new Tuple<byte[], int>(buffer, bytesRead));
+                                BytesReadQueue.Enqueue(new(buffer, bytesRead));
                             }
                             catch (Exception e)
                             {
