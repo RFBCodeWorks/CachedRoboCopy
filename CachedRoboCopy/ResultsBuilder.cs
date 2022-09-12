@@ -35,9 +35,16 @@ namespace RFBCodeWorks.CachedRoboCopy
 
         #region < Properties >
 
-        private IRoboCommand Command { get; }
+        /// <summary>
+        /// The associated <see cref="IRoboCommand"/> object
+        /// </summary>
+        protected IRoboCommand Command { get; }
         private ProgressEstimator ProgressEstimatorField;
-        private List<string> LogLines { get; } = new();
+        
+        /// <summary>
+        /// The private collection of log lines
+        /// </summary>
+        protected List<string> LogLines { get; } = new();
 
         /// <summary>
         /// Gets an array of all the log lines currently logged
@@ -49,8 +56,6 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// </summary>
         public AverageSpeedStatistic AverageSpeed { get; } = new();
 
-        private bool AnyFilesCopied;
-
         /// <summary>
         /// The time the ResultsBuilder was instantiated
         /// </summary>
@@ -59,7 +64,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary>
         /// End Time is set when the summary is created.
         /// </summary>
-        protected DateTime EndTime { get; set; }
+        public DateTime EndTime { get; protected set; }
 
         /// <summary>
         /// Flag to prevent writing the summary to the log multiple times
@@ -97,7 +102,6 @@ namespace RFBCodeWorks.CachedRoboCopy
         {
             ProgressEstimator.AddFile(file);
             ProgressEstimator.SetCopyOpStarted();
-            AnyFilesCopied = true;
         }
 
         /// <summary>
@@ -107,7 +111,6 @@ namespace RFBCodeWorks.CachedRoboCopy
         public virtual void AddFileCopied(ProcessedFileInfo file)
         {
             ProgressEstimator.AddFileCopied(file);
-            AnyFilesCopied = true;
             LogFileInfo(file, " -- OK");
         }
 
@@ -140,7 +143,12 @@ namespace RFBCodeWorks.CachedRoboCopy
             LogFileInfo(file, " -- Purged");
         }
 
-        private void LogFileInfo(ProcessedFileInfo file, string suffix = "")
+        /// <summary>
+        /// Write the <paramref name="file"/> and <paramref name="suffix"/> to the logs
+        /// </summary>
+        /// <param name="file"></param>
+        /// <param name="suffix"></param>
+        protected virtual void LogFileInfo(ProcessedFileInfo file, string suffix = "")
         {
             //Check to log the directory listing
             if (!Command.LoggingOptions.NoFileList)
@@ -155,11 +163,10 @@ namespace RFBCodeWorks.CachedRoboCopy
 
 
         /// <summary>
-        /// Add a directory to the 
+        /// Add a directory to the log and progressEstimator
         /// </summary>
-        public void AddDir(ProcessedFileInfo dir)
+        public virtual void AddDir(ProcessedFileInfo dir)
         {
-            AnyFilesCopied = false;
             LastDir = dir;
             ProgressEstimator.AddDir(dir);
             //Check to log the directory listing
@@ -175,25 +182,28 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// Adds a System Message to the logs
         /// </summary>
         /// <param name="info"></param>
-        public void AddSystemMessage(ProcessedFileInfo info) => WriteToLogs(info.FileClass);
+        public virtual void AddSystemMessage(ProcessedFileInfo info) => WriteToLogs(info.FileClass);
 
         /// <summary>
         /// Adds a System Message to the logs
         /// </summary>
         /// <param name="info"></param>
-        public void AddSystemMessage(string info) => WriteToLogs(info);
+        public virtual void AddSystemMessage(string info) => WriteToLogs(info);
 
         #endregion
 
         #region < Create Header / Summary >
 
-        const string Divider = "------------------------------------------------------------------------------";
+        /// <summary>
+        /// Divider string that can be used
+        /// </summary>
+        protected const string Divider = "------------------------------------------------------------------------------";
 
         /// <summary>
-        /// RoboCopy uses padding of 9 on the header to align things
+        /// RoboCopy uses padding of 9 on the header to align column details, such as the 'Started' time and 'Source' string
         /// </summary>
         /// <param name="RowName"></param>
-        /// <returns></returns>
+        /// <returns>A padded string</returns>
         protected string PadHeader(string RowName) => RowName.PadLeft(9);
 
         /// <summary>
@@ -325,8 +335,6 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// </summary>
         public virtual RoboCopyResults GetResults()
         {
-            //if (AnyFilesCopied) ProgressEstimator.AddDirCopied(LastDir);
-            AnyFilesCopied = false;
             CreateSummary();
             return ProgressEstimator.GetResults(StartTime, EndTime < StartTime ? DateTime.Now :EndTime, AverageSpeed, LogLines.ToArray());
         }
