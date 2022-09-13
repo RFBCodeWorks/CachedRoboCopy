@@ -27,30 +27,65 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary>
         /// Create a new RoboMoverItem by supplied file paths
         /// </summary>
-        /// <param name="source">Fully Qualified Source File Path</param>
-        /// <param name="destination">Fully Qualified Destination File Path</param>
+        /// <inheritdoc cref="EvaluateSource(string)"/>
+        /// <inheritdoc cref="EvaluateDestination(string)"/>
         public FileCopier(string source, string destination)
         {
-            //Source
-            if (string.IsNullOrWhiteSpace(source)) throw new ArgumentException("No Destination Path Specified", nameof(source));
-            if (!Path.IsPathRooted(source)) throw new ArgumentException("Path is not rooted", nameof(source));
-            if (string.IsNullOrEmpty(Path.GetFileName(source))) throw new ArgumentException("No FileName Provided", nameof(source));
-
-            //Destination
-            if (string.IsNullOrWhiteSpace(destination)) throw new ArgumentException("No Destination Path Specified", nameof(destination));
-            if (!Path.IsPathRooted(destination)) throw new ArgumentException("Path is not rooted", nameof(destination));
-            if (string.IsNullOrEmpty(Path.GetFileName(destination))) throw new ArgumentException("No FileName Provided", nameof(destination));
-
+            EvaluateSource(source);
+            EvaluateDestination(destination);
             Source = new FileInfo(source);
             Destination = new FileInfo(destination);
         }
 
+        /// <summary>
+        /// Evaluate the <paramref name="source"/> Path to ensure its a fully qualified file path
+        /// </summary>
+        /// <param name="source">Fully Qualified Source File Path</param>
+        /// <inheritdoc cref="EvaluateDestination(string)"/>
+        public static void EvaluateSource(string source)
+        {
+            if (source is null) throw new ArgumentNullException(nameof(source));
+            if (string.IsNullOrWhiteSpace(source)) throw new ArgumentException("No Source Path Specified", nameof(source));
+            if (!Path.IsPathRooted(source)) throw new ArgumentException("Source Path is not rooted", nameof(source));
+            if (string.IsNullOrEmpty(Path.GetFileName(source))) throw new ArgumentException("No FileName Provided in Source", nameof(source));
+        }
+
+        /// <summary>
+        /// Evaluate the <paramref name="destination"/> Path to ensure its a fully qualified file path.
+        /// </summary>
+        /// <param name="destination">Fully Qualified Destination File Path</param>
+        /// <exception cref="ArgumentException"/>
+        /// <exception cref="ArgumentNullException"/>
+        public static void EvaluateDestination(string destination)
+        {
+            if (destination is null) throw new ArgumentNullException(nameof(destination));
+            if (string.IsNullOrWhiteSpace(destination)) throw new ArgumentException("No Destination Path Specified", nameof(destination));
+            if (!Path.IsPathRooted(destination)) throw new ArgumentException("Destination Path is not rooted", nameof(destination));
+            if (string.IsNullOrEmpty(Path.GetFileName(destination))) throw new ArgumentException("No Destination FileName Provided", nameof(destination));
+        }
+
+        /// <returns>TRUE if the path is fully qualified, otherwise false.</returns>
+        /// <inheritdoc cref="EvaluateDestination(string)"/>
+        public static bool TryEvaluateDestination(string destination, out Exception ex)
+        {
+            ex = null;
+            try { EvaluateDestination(destination); return true; } catch (Exception e) { ex = e; return false; }
+        }
+
+        /// <returns>TRUE if the path is fully qualified, otherwise false.</returns>
+        /// <inheritdoc cref="EvaluateSource(string)"/>
+        public static bool TryEvaluateSource(string source, out Exception ex)
+        {
+            ex = null;
+            try { EvaluateSource(source); return true; } catch (Exception e) { ex = e; return false; }
+        }
 
         /// <summary>
         /// Create a new RoboMoverItem by supplied file paths
         /// </summary>
         /// <param name="source">FileInfo object that represents the source file</param>
         /// <param name="destination">FileInfo object that represents the destination file</param>
+        /// <exception cref="ArgumentNullException"/>
         public FileCopier(FileInfo source, FileInfo destination)
         {
             if (source is null) throw new ArgumentNullException(nameof(source));
@@ -68,6 +103,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// </summary>
         /// <param name="source">FileInfo object that represents the source file</param>
         /// <param name="destinationDirectory">The Directory that the file will be copied into</param>
+        /// <exception cref="ArgumentNullException"/>
         public FileCopier(FileInfo source, DirectoryInfo destinationDirectory)
         {
             if (source is null) throw new ArgumentNullException(nameof(source));
@@ -79,6 +115,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary>
         /// Used for synchronizing the items network to local
         /// </summary>
+        /// <exception cref="ArgumentNullException"/>
         public FileCopier(IFilePair FilePair)
         {
             if (FilePair is null) throw new ArgumentNullException(nameof(FilePair));
