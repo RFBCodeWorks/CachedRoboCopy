@@ -22,11 +22,30 @@ namespace RFBCodeWorks.RoboSharpExtensions
     public class FileCopier : IFileCopier, INotifyPropertyChanged, IDisposable, IFilePair
     {
 
+        /// <summary>
+        /// Gets the default <see cref="FileCopierFactory"/> provided by the library <br/> This is a static singleton.
+        /// </summary>
+        public static FileCopierFactory Factory { get => backerField ??= new(); }
+        private static FileCopierFactory backerField;
+
         #region < Constructors >
 
         /// <summary>
-        /// Create a new RoboMoverItem by supplied file paths
+        /// Create a new FileCopier from the supplied file paths
         /// </summary>
+        /// <param name="source">FileInfo object that represents the source file</param>
+        /// <param name="destination">FileInfo object that represents the destination file</param>
+        /// <exception cref="ArgumentNullException"/>
+        public FileCopier(FileInfo source, FileInfo destination)
+        {
+            if (source is null) throw new ArgumentNullException(nameof(source));
+            if (destination is null) throw new ArgumentNullException(nameof(destination));
+
+            Source = source;
+            Destination = destination;
+        }
+
+        /// <inheritdoc cref="FileCopier.FileCopier(FileInfo, FileInfo)"/>
         /// <inheritdoc cref="EvaluateSource(string)"/>
         /// <inheritdoc cref="EvaluateDestination(string)"/>
         public FileCopier(string source, string destination)
@@ -35,6 +54,28 @@ namespace RFBCodeWorks.RoboSharpExtensions
             EvaluateDestination(destination);
             Source = new FileInfo(source);
             Destination = new FileInfo(destination);
+        }
+
+        /// <param name="destinationDirectory">The Directory that the file will be copied into</param>
+        /// <inheritdoc cref="FileCopier.FileCopier(FileInfo, FileInfo)"/>
+        /// <param name="source"/>
+        public FileCopier(FileInfo source, DirectoryInfo destinationDirectory)
+        {
+            if (source is null) throw new ArgumentNullException(nameof(source));
+            if (destinationDirectory is null) throw new ArgumentNullException(nameof(destinationDirectory));
+            Source = source;
+            Destination = new FileInfo(Path.Combine(destinationDirectory.FullName, source.Name));
+        }
+
+        /// <summary>
+        /// Create a new FileCopier from the provided IFilePair
+        /// </summary>
+        /// <exception cref="ArgumentNullException"/>
+        public FileCopier(IFilePair FilePair)
+        {
+            if (FilePair is null) throw new ArgumentNullException(nameof(FilePair));
+            Source = FilePair?.Source ?? throw new ArgumentNullException("Source");
+            Destination = FilePair?.Destination ?? throw new ArgumentNullException("Destination");
         }
 
         /// <summary>
@@ -80,48 +121,8 @@ namespace RFBCodeWorks.RoboSharpExtensions
             try { EvaluateSource(source); return true; } catch (Exception e) { ex = e; return false; }
         }
 
-        /// <summary>
-        /// Create a new RoboMoverItem by supplied file paths
-        /// </summary>
-        /// <param name="source">FileInfo object that represents the source file</param>
-        /// <param name="destination">FileInfo object that represents the destination file</param>
-        /// <exception cref="ArgumentNullException"/>
-        public FileCopier(FileInfo source, FileInfo destination)
-        {
-            if (source is null) throw new ArgumentNullException(nameof(source));
-            if (destination is null) throw new ArgumentNullException(nameof(destination));
-
-            Source = source;
-            Destination = destination;
-        }
-
         /// <inheritdoc cref="FileCopier.FileCopier(FileInfo, FileInfo)"/>
         public static FileCopier CreateNew(FileInfo source, FileInfo destination) => new FileCopier(source, destination);
-
-        /// <summary>
-        /// Create a new RoboMoverItem by supplied file paths
-        /// </summary>
-        /// <param name="source">FileInfo object that represents the source file</param>
-        /// <param name="destinationDirectory">The Directory that the file will be copied into</param>
-        /// <exception cref="ArgumentNullException"/>
-        public FileCopier(FileInfo source, DirectoryInfo destinationDirectory)
-        {
-            if (source is null) throw new ArgumentNullException(nameof(source));
-            if (destinationDirectory is null) throw new ArgumentNullException(nameof(destinationDirectory));
-            Source = source;
-            Destination = new FileInfo(Path.Combine(destinationDirectory.FullName, source.Name));
-        }
-
-        /// <summary>
-        /// Used for synchronizing the items network to local
-        /// </summary>
-        /// <exception cref="ArgumentNullException"/>
-        public FileCopier(IFilePair FilePair)
-        {
-            if (FilePair is null) throw new ArgumentNullException(nameof(FilePair));
-            Source = FilePair?.Source ?? throw new ArgumentNullException("Source");
-            Destination = FilePair?.Destination ?? throw new ArgumentNullException("Destination");
-        }
 
         #endregion
 

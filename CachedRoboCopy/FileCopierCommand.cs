@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using RoboSharp.Extensions;
+using System.Collections.ObjectModel;
 
 namespace RFBCodeWorks.RoboSharpExtensions
 {
@@ -29,29 +30,28 @@ namespace RFBCodeWorks.RoboSharpExtensions
         /// <summary>
         /// Create a new FileCopierCommand
         /// </summary>
-        public FileCopierCommand() : base() 
+        public FileCopierCommand() : base()
         {
             base.CopyOptions.MultiThreadedCopiesCount = 1;
+            FileCopiers = new ReadOnlyCollection<IFileCopier>(FileCopiersCollection);
         }
 
         /// <summary>
         /// Create a new FileCopierCommand with the provided copiers
         /// </summary>
         /// <param name="copiers"></param>
-        public FileCopierCommand(params IFileCopier[] copiers) : base()
+        public FileCopierCommand(params IFileCopier[] copiers) : this()
         {
-            FileCopiers.AddRange(copiers);
-            base.CopyOptions.MultiThreadedCopiesCount = 1;
+            FileCopiersCollection.AddRange(copiers);
         }
 
         /// <summary>
         /// Create a new FileCopierCommand with the provided copiers
         /// </summary>
         /// <param name="copiers"></param>
-        public FileCopierCommand(IEnumerable<IFileCopier> copiers) : base()
+        public FileCopierCommand(IEnumerable<IFileCopier> copiers) : this()
         {
-            FileCopiers.AddRange(copiers);
-            base.CopyOptions.MultiThreadedCopiesCount = 1;
+            FileCopiersCollection.AddRange(copiers);
         }
 
         #region < Properties >
@@ -59,8 +59,21 @@ namespace RFBCodeWorks.RoboSharpExtensions
         /// <summary>
         /// The FileCopier objects that get run with this Start method is called
         /// </summary>
-        public ObservableList<IFileCopier> FileCopiers { get; } = new ObservableList<IFileCopier>();
+        public IReadOnlyCollection<IFileCopier> FileCopiers { get; }
+        private ConcurrentList<IFileCopier> FileCopiersCollection { get; } = new ConcurrentList<IFileCopier>();
 
+        /// <summary>
+        /// Factory to be used by <see cref="AddCommand(string, string)"/> and <see cref="AddCommand(FileInfo, DirectoryInfo)"/>
+        /// </summary>
+        /// <remarks>
+        /// If not specified, will use the default factory
+        /// </remarks>
+        public IFileCopierFactory FileCopierFactory
+        {
+            get => fileCopierFactory ?? RoboSharpExtensions.FileCopier.Factory;
+            init => fileCopierFactory = value;
+        }
+        private IFileCopierFactory fileCopierFactory;
 
         /// <summary>
         /// Not fully implemented. Relevant options include:
@@ -113,22 +126,22 @@ namespace RFBCodeWorks.RoboSharpExtensions
         /// Add the copiers to the list
         /// </summary>
         /// <param name="copier"></param>
-        public void AddCommand(params IFileCopier[] copier) => this.FileCopiers.AddRange(copier);
+        public void AddCommand(params IFileCopier[] copier) => this.FileCopiersCollection.AddRange(copier);
 
         /// <summary>
         /// Add the copiers to the list
         /// </summary>
         /// <param name="copier"></param>
-        public void AddCommand(IEnumerable<IFileCopier> copier) => this.FileCopiers.AddRange(copier);
+        public void AddCommand(IEnumerable<IFileCopier> copier) => this.FileCopiersCollection.AddRange(copier);
 
         /// <summary>
         /// Create a new <see cref="FileCopier"/> and add it to the list
         /// </summary>
         /// <inheritdoc cref="FileCopier.FileCopier(string, string)"/>
         /// <returns>The newly created <see cref="FileCopier"/></returns>
-        public FileCopier AddCommand(string source, string destination)
+        public IFileCopier AddCommand(string source, string destination)
         {
-            FileCopier f = new FileCopier(source, destination);
+            IFileCopier f = FileCopierFactory.CreateFileCopier(source, destination);
             this.AddCommand(f);
             return f;
         }
@@ -138,9 +151,9 @@ namespace RFBCodeWorks.RoboSharpExtensions
         /// </summary>
         /// <inheritdoc cref="FileCopier.FileCopier(FileInfo, DirectoryInfo)"/>
         /// <returns>The newly created <see cref="FileCopier"/></returns>
-        public FileCopier AddCommand(FileInfo source, DirectoryInfo destinationDirectory)
+        public IFileCopier AddCommand(FileInfo source, DirectoryInfo destinationDirectory)
         {
-            FileCopier f = new FileCopier(source, destinationDirectory);
+            IFileCopier f = FileCopierFactory.CreateFileCopier(source, destinationDirectory);
             this.AddCommand(f);
             return f;
         }
@@ -168,11 +181,10 @@ namespace RFBCodeWorks.RoboSharpExtensions
                 List<Task> queue = new List<Task>();
                 Task copyTask = null;
                 var evaluator = new PairEvaluator(this);
-                CopyQueue copyQueue = LoggingOptions.ListOnly ? null : new CopyQueue(this, CancellationSource.Token);
 
                 bool move = !CopyOptions.Mirror && (CopyOptions.MoveFiles | CopyOptions.MoveFilesAndDirectories);
 
-                foreach (IFileCopier copier in FileCopiers)
+                foreach (IFileCopier copier in FileCopiersCollection)
                 {
                     #region < Setup the Events and Continuation Task >
 
@@ -305,7 +317,7 @@ namespace RFBCodeWorks.RoboSharpExtensions
         {
             if (IsRunning && !IsCancelled)
             {
-                foreach (var c in FileCopiers)
+                foreach (var c in FileCopiersCollection)
                     c.Cancel();
                 this.CancellationSource?.Cancel();
                 IsCancelled = true;
@@ -318,13 +330,13 @@ namespace RFBCodeWorks.RoboSharpExtensions
         /// <inheritdoc/>
         public IEnumerator<IFileCopier> GetEnumerator()
         {
-            return ((IEnumerable<IFileCopier>)FileCopiers).GetEnumerator();
+            return ((IEnumerable<IFileCopier>)FileCopiersCollection).GetEnumerator();
         }
 
         /// <inheritdoc/>
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return ((IEnumerable)FileCopiers).GetEnumerator();
+            return ((IEnumerable)FileCopiersCollection).GetEnumerator();
         }
 
         #endregion
