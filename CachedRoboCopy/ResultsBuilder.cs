@@ -10,7 +10,7 @@ using RoboSharp.Results;
 using RoboSharp.EventArgObjects;
 using static RoboSharp.Results.ProgressEstimator;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions
 {
     /// <summary>
     /// ResultsBuilder object for custom IRoboCommand implementations
@@ -216,7 +216,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             {
                 
                 WriteToLogs(Divider);
-                WriteToLogs("   RFBCodeWorks.CachedRoboCopy :: \t An alternative to RoboCopy");
+                WriteToLogs("   RFBCodeWorks.RoboSharpExtensions :: \t An alternative to RoboCopy");
                 WriteToLogs(Divider);
                 WriteToLogs("");
                 WriteToLogs($"{PadHeader("Started")} : {StartTime.ToLongDateString()} {StartTime.ToLongTimeString()}");

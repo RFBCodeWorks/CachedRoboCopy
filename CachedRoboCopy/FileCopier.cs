@@ -10,11 +10,11 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
-using RFBCodeWorks.CachedRoboCopy.CopyFileEx;
+using RFBCodeWorks.RoboSharpExtensions.CopyFileEx;
 using RoboSharp.Extensions;
 using System.Collections.Concurrent;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions
 {
     /// <summary>
     /// An optimized File-Copier that reports file copy progress, and optimizes the 'Move' functionality if the file exists on the same drive.

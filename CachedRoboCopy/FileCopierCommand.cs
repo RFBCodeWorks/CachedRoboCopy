@@ -12,7 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using RoboSharp.Extensions;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions
 {
     /// <summary>
     /// This is a list of <see cref="FileCopier"/> objects that provides for the <see cref="IRoboCommand"/> interface.

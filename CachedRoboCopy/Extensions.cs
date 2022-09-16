@@ -6,7 +6,7 @@ using System.Threading;
 using System.Linq;
 using System.IO;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions
 {
     internal static class MiscExtensions
     {
@@ -31,7 +31,6 @@ namespace RFBCodeWorks.CachedRoboCopy
         public static Task WhenAll(this IEnumerable<Task> tasks) => Task.WhenAll(tasks);
 
         #endregion
-
 
         /// <summary>
         /// Check if the directory has any files

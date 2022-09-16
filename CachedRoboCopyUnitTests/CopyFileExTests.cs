@@ -5,9 +5,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
-using RFBCodeWorks.CachedRoboCopy.Tests;
+using RFBCodeWorks.RoboSharpExtensions.Tests;
 
-namespace RFBCodeWorks.CachedRoboCopy.CopyFileEx.Tests
+namespace RFBCodeWorks.RoboSharpExtensions.CopyFileEx.Tests
 {
     [TestClass()]
     public class CopyFileExTests

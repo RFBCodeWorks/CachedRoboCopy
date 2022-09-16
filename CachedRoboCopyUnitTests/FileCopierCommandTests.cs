@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace RFBCodeWorks.CachedRoboCopy.Tests
+namespace RFBCodeWorks.RoboSharpExtensions.Tests
 {
     [TestClass()]
     public class FileCopierCommandTests

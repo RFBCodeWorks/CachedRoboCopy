@@ -7,8 +7,9 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RoboSharp;
 using RoboSharp.Interfaces;
 using RoboSharp.Tests;
+using RFBCodeWorks.RoboSharpExtensions.CachedCommand;
 
-namespace RFBCodeWorks.CachedRoboCopy.Tests
+namespace RFBCodeWorks.RoboSharpExtensions.Tests
 {
     public static class TestPrep
     {

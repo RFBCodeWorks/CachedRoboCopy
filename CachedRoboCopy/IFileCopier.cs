@@ -7,9 +7,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using static RFBCodeWorks.CachedRoboCopy.FileCopier;
+using static RFBCodeWorks.RoboSharpExtensions.FileCopier;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions
 {
     /// <summary>
     /// Interface for objects that allow copying/moving with events for success or failure.

@@ -1,5 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using RFBCodeWorks.CachedRoboCopy;
+using RFBCodeWorks.RoboSharpExtensions;
+using RFBCodeWorks.RoboSharpExtensions.Tests;
 using RoboSharp;
 using RoboSharp.Interfaces;
 using RoboSharp.Tests;
@@ -10,7 +11,7 @@ using System.Text;
 using CopyActionFlags = RoboSharp.CopyOptions.CopyActionFlags;
 using LoggingActionFlags = RoboSharp.LoggingOptions.LoggingActionFlags;
 using SelectionFlags = RoboSharp.SelectionOptions.SelectionFlags;
-namespace RFBCodeWorks.CachedRoboCopy.Tests
+namespace RFBCodeWorks.RoboSharpExtensions.CachedCommand.Tests
 {
     [TestClass()]
     public class CachedRoboCopyTests
