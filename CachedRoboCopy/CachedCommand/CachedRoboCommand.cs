@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 using RoboSharp.Extensions;
 using System.Collections.Concurrent;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions.CachedCommand
 {
     /// <summary>
     /// Custom implementation of the <see cref="IRoboCommand"/> interface that mimicks RoboCopy.<br/>
@@ -52,6 +52,19 @@ namespace RFBCodeWorks.CachedRoboCopy
         }
 
         #endregion
+
+        /// <summary>
+        /// Factory to be used to create the IFileCopiers that copy files within the directory tree
+        /// </summary>
+        /// <remarks>
+        /// If not specified, will use the default factory
+        /// </remarks>
+        public IFileCopierFactory FileCopierFactory
+        {
+            get => fileCopierFactory ?? RoboSharpExtensions.FileCopier.Factory;
+            init => fileCopierFactory = value;
+        }
+        private IFileCopierFactory fileCopierFactory;
 
         private CancellationTokenSource CancellationTokenSource { get; set; }
         

@@ -5,7 +5,7 @@
 //using System.Text;
 //using System.Threading.Tasks;
 
-//namespace RFBCodeWorks.CachedRoboCopy
+//namespace RFBCodeWorks.RoboSharpExtensions
 //{
 //    /// <summary>
 //    /// Args to occur when a DirectoryCopier completes its task

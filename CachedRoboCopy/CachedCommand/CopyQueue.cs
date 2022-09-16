@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions.CachedCommand
 {
     /// <summary>
     /// Class that holds the queue logic for the custom IRoboCommands
@@ -188,8 +188,6 @@ namespace RFBCodeWorks.CachedRoboCopy
         }
 
         #endregion
-
-
 
     }
 }

@@ -10,7 +10,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions.CachedCommand
 {
     /// <summary>
     /// Class designed to facilitate the Copy/Move functionality for a directory
@@ -20,7 +20,7 @@ namespace RFBCodeWorks.CachedRoboCopy
 
         #region < Constructors >
 
-        public DirectoryCopier(string sourceDir, string destinationDir, PairEvaluator evaluator )
+        public DirectoryCopier(string sourceDir, string destinationDir, PairEvaluator evaluator)
         {
             if (string.IsNullOrWhiteSpace(sourceDir)) throw new ArgumentException("parameter is null or empty", nameof(sourceDir));
             if (string.IsNullOrWhiteSpace(destinationDir)) throw new ArgumentException("parameter is null or empty", nameof(destinationDir));
@@ -54,10 +54,6 @@ namespace RFBCodeWorks.CachedRoboCopy
             Refresh();
         }
 
-
-        #endregion
-
-        #region < Static Properties & Constants >
 
         #endregion
 
@@ -223,8 +219,6 @@ namespace RFBCodeWorks.CachedRoboCopy
         //DirectoryInfo IDirectorySourceDestinationPair.Source => Source.DirectoryInfo;
 
         //DirectoryInfo IDirectorySourceDestinationPair.Destination => Destination.DirectoryInfo;
-
-
 
         #endregion
 
