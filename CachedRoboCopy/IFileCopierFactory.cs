@@ -14,6 +14,9 @@ namespace RFBCodeWorks.RoboSharpExtensions
         /// <inheritdoc cref="FileCopier.FileCopier(string, string)"/>
         IFileCopier CreateFileCopier(string source, string destination);
 
+        /// <inheritdoc cref="FileCopier.FileCopier(FileInfo, DirectoryInfo)"/>
+        IFileCopier CreateFileCopier(string source, DirectoryInfo destination);
+
         /// <inheritdoc cref="FileCopier.FileCopier(FileInfo, FileInfo)"/>
         IFileCopier CreateFileCopier(FileInfo source, FileInfo destination);
 
@@ -34,6 +37,12 @@ namespace RFBCodeWorks.RoboSharpExtensions
         public virtual IFileCopier CreateFileCopier(string source, string destination)
         {
             return new FileCopier(source, destination);
+        }
+
+        /// <inheritdoc/>
+        public virtual IFileCopier CreateFileCopier(string source, DirectoryInfo destination)
+        {
+            return new FileCopier(new FileInfo(source), destination);
         }
 
         /// <inheritdoc/>

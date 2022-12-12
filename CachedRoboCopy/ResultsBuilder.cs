@@ -197,7 +197,7 @@ namespace RFBCodeWorks.RoboSharpExtensions
         /// <summary>
         /// Divider string that can be used
         /// </summary>
-        protected const string Divider = "------------------------------------------------------------------------------";
+        public const string Divider = "------------------------------------------------------------------------------";
 
         /// <summary>
         /// RoboCopy uses padding of 9 on the header to align column details, such as the 'Started' time and 'Source' string
