@@ -1,16 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RoboSharp;
 using RoboSharp.Interfaces;
 using RoboSharp.Tests;
+using RFBCodeWorks.RoboSharpExtensions.CachedCommand;
 
-namespace RFBCodeWorks.CachedRoboCopy.Tests
+namespace RFBCodeWorks.RoboSharpExtensions.Tests
 {
     public static class TestPrep
     {
+
+        public static string CopyFileExTestSourcePath => Path.GetDirectoryName(SourceDirPath);
+        public static string SourceDirPath => RoboSharp.Tests.Test_Setup.Source_Standard;
+        public static string DestDirPath => RoboSharp.Tests.Test_Setup.TestDestination;
 
         /// <inheritdoc cref="Test_Setup.ClearOutTestDestination"/>
         public static void CleanDestination()
@@ -31,6 +37,7 @@ namespace RFBCodeWorks.CachedRoboCopy.Tests
             cmd.CopyOptions.ApplyActionFlags(copyActionFlags);
             cmd.SelectionOptions.ApplySelectionFlags(selectionFlags);
             cmd.LoggingOptions.ApplyLoggingFlags(loggingAction);
+            cmd.CopyOptions.MultiThreadedCopiesCount = 0;
             return cmd;
         }
 
@@ -50,13 +57,38 @@ namespace RFBCodeWorks.CachedRoboCopy.Tests
         }
 
 
-        public static async Task<RoboSharpTestResults[]> RunTests(RoboCommand roboCommand, CachedRoboCommand cachedRoboCommand, bool CleanBetweenRuns)
+        public static async Task<RoboSharpTestResults[]> RunTests(RoboCommand roboCommand, CachedRoboCommand cachedRoboCommand, bool CleanBetweenRuns, Action actionBetweenRuns = null)
         {
             var results = new List<RoboSharpTestResults>();
+            BetweenRuns();
             results.Add(await Test_Setup.RunTest(roboCommand));
-            if (CleanBetweenRuns) CleanDestination();
+            BetweenRuns();
+            cachedRoboCommand.OnError += CachedRoboCommand_OnError;
+            cachedRoboCommand.OnCommandError += CachedRoboCommand_OnCommandError;
             results.Add(await Test_Setup.RunTest(cachedRoboCommand));
+            cachedRoboCommand.OnError -= CachedRoboCommand_OnError;
+            cachedRoboCommand.OnCommandError -= CachedRoboCommand_OnCommandError;
+
+            if (CleanBetweenRuns) CleanDestination();
             return results.ToArray();
+
+            void BetweenRuns()
+            {
+                if (CleanBetweenRuns) CleanDestination();
+                if (actionBetweenRuns != null) actionBetweenRuns();
+            }
+
+
+        }
+
+        private static void CachedRoboCommand_OnCommandError(IRoboCommand sender, CommandErrorEventArgs e)
+        {
+            Console.WriteLine(e.Exception);
+        }
+
+        private static void CachedRoboCommand_OnError(IRoboCommand sender, RoboSharp.ErrorEventArgs e)
+        {
+            Console.WriteLine(e.Exception);
         }
 
         public static Task<RoboSharpTestResults> RunTest(IRoboCommand roboCommand)

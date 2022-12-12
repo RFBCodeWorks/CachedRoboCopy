@@ -6,7 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace RFBCodeWorks.CachedRoboCopy.Extensions
+namespace RFBCodeWorks.RoboSharpExtensions.Extensions
 {
     /// <summary>
     /// Extension Methods for an IDirectorySource object

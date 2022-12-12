@@ -1,4 +1,5 @@
 ﻿using RoboSharp;
+using RoboSharp.Extensions;
 using RoboSharp.Results;
 using System;
 using System.Collections.Generic;
@@ -7,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions
 {
     /// <summary>
     /// Occurs when FileCopy completes copying - Occurrs after CopyProgress 100 occurrs
@@ -17,24 +18,23 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="sourceFile"></param>
-        /// <param name="destinationFile"></param>
+        /// <param name="filePair"></param>
         /// <param name="destInfo">ProcessedFileInfo object about the destination file</param>
         /// <param name="sourceDirInfo">ProcessedFileInfo object about the Source Directory - Compatibility for RoboSharp</param>
         /// <param name="Start"/>
         /// <param name="End"/>
-        public FileCopyCompletedEventArgs(FileInfo sourceFile, FileInfo destinationFile, DateTime Start, DateTime End, ProcessedFileInfo destInfo, ProcessedFileInfo sourceDirInfo)
+        public FileCopyCompletedEventArgs(IFilePair filePair, DateTime Start, DateTime End, ProcessedFileInfo destInfo, ProcessedFileInfo sourceDirInfo)
         {
             if (End < Start) throw new ArgumentException("End Time cannot be less than Start Time", nameof(End));
-            SourceFileInfo = sourceFile ?? throw new ArgumentNullException(nameof(sourceFile));
-            DestinationFileInfo = destinationFile ?? throw new ArgumentNullException(nameof(destinationFile));
+            SourceFileInfo = filePair?.Source ?? throw new ArgumentNullException(nameof(filePair.Source));
+            DestinationFileInfo = filePair?.Destination ?? throw new ArgumentNullException(nameof(filePair.Destination));
             
             StartTime = Start;
             EndTime = End;
             TimeSpan = EndTime - StartTime;
             RoboSharpFileInfo = destInfo;
             SourceDirInfo = sourceDirInfo;
-            Speed = new SpeedStatistic(sourceFile.Length, TimeSpan);
+            Speed = new SpeedStatistic(filePair.GetFileLength(), TimeSpan);
         }
 
         /// <summary>

@@ -1,4 +1,5 @@
 ﻿using RoboSharp;
+using RoboSharp.Extensions;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions
 {
     /// <summary>
     /// Args for FileCopier
@@ -17,19 +18,28 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// 
         /// </summary>
         /// <param name="progress"></param>
-        /// <param name="sourceFile"></param>
-        /// <param name="destinationFile"></param>
+        /// <param name="fileCopier"></param>
         /// <param name="destInfo">ProcessedFileInfo object about the destination file</param>
         /// <param name="sourceDirInfo">ProcessedFileInfo object about the Source Directory - Compatibility for RoboSharp</param>
-        public FileCopyProgressUpdatedEventArgs(double progress, FileInfo sourceFile, FileInfo destinationFile, ProcessedFileInfo destInfo, ProcessedFileInfo sourceDirInfo)
+        public FileCopyProgressUpdatedEventArgs(double progress, IFileCopier fileCopier, ProcessedFileInfo destInfo, ProcessedFileInfo sourceDirInfo)
         {
             Progress = progress;
-            SourceFileInfo= sourceFile;
-            DestinationFileInfo = destinationFile;
-            RoboSharpFileInfo = destInfo ?? new ProcessedFileInfo() { FileClass = "", FileClassType = FileClassType.File , Name = DestinationFileInfo.Name, Size = SourceFileInfo.Length };
-            RoboSharpDirInfo = sourceDirInfo ?? new ProcessedFileInfo() { FileClass = "", FileClassType = FileClassType.NewDir, Name = Path.GetFileName(SourceFileInfo.DirectoryName), Size = 1 };
-            //if (destInfo is null) destInfo = RoboSharpFileInfo;
-            //if (sourceDirInfo is null) sourceDirInfo = SourceDirInfo;
+            SourceFileInfo = fileCopier?.Source ?? throw new ArgumentNullException(nameof(fileCopier.Source));
+            DestinationFileInfo = fileCopier?.Destination ?? throw new ArgumentNullException(nameof(fileCopier.Destination)); ;
+            RoboSharpFileInfo = destInfo ?? new ProcessedFileInfo()
+            {
+                FileClass = "",
+                FileClassType = FileClassType.File,
+                Name = DestinationFileInfo.Name,
+                Size = fileCopier.GetFileLength()
+            };
+            RoboSharpDirInfo = sourceDirInfo ?? new ProcessedFileInfo()
+            {
+                FileClass = "",
+                FileClassType = FileClassType.NewDir,
+                Name = Path.GetFileName(SourceFileInfo.DirectoryName),
+                Size = 1
+            };
         }
 
         /// <summary>

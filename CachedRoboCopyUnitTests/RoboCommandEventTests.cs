@@ -4,10 +4,10 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace RFBCodeWorks.CachedRoboCopy.Tests
+namespace RFBCodeWorks.RoboSharpExtensions.Tests
 {
     [TestClass]
-    public class RoboCommandEventTests : RoboSharp.Tests.RoboCommandEventTests
+    public class CachedRoboCommandEventTests : RoboSharp.Tests.RoboCommandEventTests
     {
         public override IRoboCommand GetRoboCommand(bool useLargerFileSet, bool ListOnlyMode)
         {

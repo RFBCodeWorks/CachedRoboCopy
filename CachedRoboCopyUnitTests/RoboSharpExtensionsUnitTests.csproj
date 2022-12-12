@@ -1,16 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
-
+    <TargetFrameworks>
+        netstandard2.0;
+        netstandard2.1;
+        netcoreapp3.1;
+        net472;
+        net5.0-windows
+    </TargetFrameworks>
+    <LangVersion>9</LangVersion>
     <IsPackable>false</IsPackable>
-
-    <RootNamespace>RFBCodeWorks.CachedRoboCopy.Tests</RootNamespace>
-
+    <RootNamespace>RFBCodeWorks.RoboSharpExtensions.Tests</RootNamespace>
     <ApplicationIcon />
-
     <OutputType>Library</OutputType>
-
     <StartupObject />
   </PropertyGroup>
 
@@ -24,7 +26,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\RoboSharp\RoboSharpUnitTesting\RoboSharpUnitTesting.csproj" />
     <ProjectReference Include="..\..\..\RoboSharp\RoboSharp\RoboSharp.csproj" />
-    <ProjectReference Include="..\CachedRoboCopy\CachedRoboCopy.csproj" />
+    <ProjectReference Include="..\CachedRoboCopy\RoboSharpExtensions.csproj" />
   </ItemGroup>
 
 </Project>
