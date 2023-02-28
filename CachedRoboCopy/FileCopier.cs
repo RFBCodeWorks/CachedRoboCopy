@@ -432,15 +432,65 @@ namespace RFBCodeWorks.CachedRoboCopy
                 dest.SetLength(source.Length);
                 for (long size = 0; size < len; size += read)
                 {
-                    if ((progress = size / flen * 100) != reportedProgress)
-                        OnFileCopyProgressUpdated(reportedProgress = progress);
+                    Destination.Directory.Create();
+                    if (Source.Length == 0)
+                    {
+                        File.WriteAllBytes(Destination.FullName, Array.Empty<byte>());
+                        OnFileCopyProgressUpdated(100);
+                    }
+                    else
+                    {
+                        long sizeWritten = 0, SourceLength = Source.Length;
+                        bool flushed = false;
+                        using (var dest = Destination.OpenWrite())
+                        {
 
-                    read = source.Read(swap ? buffer : buffer2, 0, bufferSize);
-                    writer?.Wait();  // if < .NET4 // if (writer != null) writer.Wait(); 
-                    writer = dest.WriteAsync(swap ? buffer : buffer2, 0, read);
-                    swap = !swap;
-                    if (CancellationSource.IsCancellationRequested)
-                        return false;
+                        TryWrite:
+                            try
+                            {
+                                while (sizeWritten < SourceLength && exceptionData is null)
+                                {
+                                    if (CancellationSource.IsCancellationRequested) break;
+                                    if (IsPaused) Thread.Sleep(100);
+                                    if (!BytesReadQueue.IsEmpty && BytesReadQueue.TryDequeue(out var tuple))
+                                    {
+                                        dest.Write(tuple.Item1, 0, tuple.Item2);
+                                        sizeWritten += tuple.Item2;
+                                        OnFileCopyProgressUpdated((double)sizeWritten / SourceLength * 100);
+                                    }
+                                    else
+                                    {
+                                        //wait for an item to hit the queue
+                                        Thread.Sleep(25);
+                                    }
+                                }
+                                if (!flushed)
+                                {
+                                    dest.Flush(); flushed = true;
+                                    dest.Close();
+                                }
+                                if (Progress == 100 && SetAttributes != null)
+                                {
+                                    SetAttributes(Destination);
+                                }
+
+                            }
+                            catch (Exception e)
+                            {
+                                if (tries < RetryOptions.RetryCount)
+                                {
+                                    Thread.Sleep(RetryOptions.GetWaitTime());
+                                    tries++;
+                                    goto TryWrite;
+                                }
+                                exceptionData = e;
+                            }
+                            finally
+                            {
+                                try { dest.Close(); } catch { }
+                            }
+                        }
+                    }
                 }
                 writer?.Wait();  //Fixed - Thanks @sam-hocevar
                 OnFileCopyProgressUpdated(100);
