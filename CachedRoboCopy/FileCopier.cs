@@ -244,17 +244,18 @@ namespace RFBCodeWorks.RoboSharpExtensions
         /// <summary>
         /// Retry Options
         /// </summary>
-        public RetryOptions RetryOptions {
+        public RetryOptions RetryOptions
+        {
             get => RetryOptionsField ??= new RetryOptions();
             set { if (value != null) RetryOptionsField = value; }
         }
         private RetryOptions RetryOptionsField;
-       
+
         /// <summary>
         /// This object's FileInfo
         /// </summary>
         public RoboSharp.ProcessedFileInfo RoboSharpFileInfo { get; set; }
-        
+
         /// <summary>
         /// The Parent's info
         /// </summary>
@@ -385,8 +386,8 @@ namespace RFBCodeWorks.RoboSharpExtensions
                 SetEnded(false, false);
                 return Task.FromResult(false);
             }
-            
-            
+
+
 
             var read = GetReadTask();
             var write = WriteTask(IsMoveOperation, SetAttributes);
@@ -485,7 +486,7 @@ namespace RFBCodeWorks.RoboSharpExtensions
         /// <remarks>
         /// 100 MB
         /// </remarks>
-        const int bufferMax = (100 * 1024 * 1024 ) / bufferSize;
+        const int bufferMax = (100 * 1024 * 1024) / bufferSize;
         /// <summary>
         /// The queue of bytes waiting to be written to disk
         /// </summary>
@@ -610,129 +611,129 @@ namespace RFBCodeWorks.RoboSharpExtensions
         /// <returns>A an unstarted task that completes when the write operation is cancelled, or when the entire file has been written. <br/> TASK MUST BE STARTED!</returns>
         private Task WriteTask(bool isMoving, Action<FileInfo> SetAttributes = null)
         {
-            Task t = new Task( () =>
-            {
-                int tries = 1;
-            TryOpenWrite:
-                try
-                {
-                    Destination.Directory.Create();
-                    if (Source.Length == 0)
-                    {
-                        File.WriteAllBytes(Destination.FullName, new byte[] { });
-                        OnFileCopyProgressUpdated(100);
-                    }
-                    else
-                    {
                         long sizeWritten = 0, SourceLength = Source.Length;
-                        bool flushed = false;
-                        using (var dest = Destination.OpenWrite())
-                        {
-
-                        TryWrite:
-                            try
-                            {
-                                while (sizeWritten < SourceLength && exceptionData is null)
-                                {
-                                    if (CancellationSource.IsCancellationRequested) break;
-                                    if (IsPaused) Thread.Sleep(100);
-                                    if (!BytesReadQueue.IsEmpty && BytesReadQueue.TryDequeue(out var tuple))
-                                    {
-                                        dest.Write(tuple.Item1, 0, tuple.Item2);
-                                        sizeWritten += tuple.Item2;
                                         var progress = sizeWritten / SourceLength * 100;
                                         OnFileCopyProgressUpdated(progress);
-                                    }
-                                    else
-                                    {
-                                        //wait for an item to hit the queue
-                                        Thread.Sleep(25);
-                                    }
-                                }
-                                if (!flushed)
-                                {
-                                    dest.Flush(); flushed = true;
-                                    dest.Close();
-                                }
-                                if (Progress == 100 && SetAttributes != null)
-                                {
-                                    SetAttributes(Destination);
-                                }
+            Task t = new Task(() =>
+           {
+               int tries = 1;
+           TryOpenWrite:
+               try
+               {
+                   Destination.Directory.Create();
+                   if (Source.Length == 0)
+                   {
+                       File.WriteAllBytes(Destination.FullName, Array.Empty<byte>());
+                       OnFileCopyProgressUpdated(100);
+                   }
+                   else
+                   {
+                       bool flushed = false;
+                       using (var dest = Destination.OpenWrite())
+                       {
 
-                            }
-                            catch (Exception e)
-                            {
-                                if (tries < RetryOptions.RetryCount)
-                                {
-                                    Thread.Sleep(RetryOptions.GetWaitTime());
-                                    tries++;
-                                    goto TryWrite;
-                                }
-                                exceptionData = e;
-                            }
-                            finally
-                            {
-                                try { dest.Close(); } catch { }
-                            }
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-                    if (tries < RetryOptions.RetryCount)
-                    {
-                        Thread.Sleep(RetryOptions.GetWaitTime());
-                        tries++;
-                        goto TryOpenWrite;
-                    }
-                    exceptionData = e;
-                }
-                finally
-                {
-                    //Set values inditicating that operation has been completed.
-                    bool isFaulted = !(exceptionData is null);
-                    SetEnded(
-                        wasCancelled: CancellationSource?.IsCancellationRequested ?? true,
-                        isCopied: !isFaulted && !WasCancelled && Progress == 100
-                        );
+                       TryWrite:
+                           try
+                           {
+                               while (sizeWritten < SourceLength && exceptionData is null)
+                               {
+                                   if (CancellationSource.IsCancellationRequested) break;
+                                   if (IsPaused) Thread.Sleep(100);
+                                   if (!BytesReadQueue.IsEmpty && BytesReadQueue.TryDequeue(out var tuple))
+                                   {
+                                       dest.Write(tuple.Item1, 0, tuple.Item2);
+                                       sizeWritten += tuple.Item2;
+                                   }
+                                   else
+                                   {
+                                       //wait for an item to hit the queue
+                                       Thread.Sleep(25);
+                                   }
+                               }
+                               if (!flushed)
+                               {
+                                   dest.Flush(); flushed = true;
+                                   dest.Close();
+                               }
+                               if (Progress == 100 && SetAttributes != null)
+                               {
+                                   SetAttributes(Destination);
+                               }
 
-                    //Raise Events
-                    if (IsCopied)
-                    {
-                        if (isMoving)
-                        {
-                            try
-                            {
-                                Source.Delete();
-                            }
-                            catch (Exception e)
-                            {
-                                OnFileCopyFailed("Failed to delete source file after Move was requested.", e);
-                            }
-                            Source.Refresh();
-                        }
-                        OnFileCopyCompleted();
-                    }
-                    else
-                    {
-                        if (File.Exists(Destination.FullName))
-                        {
-                            try
-                            {
-                                Destination.Delete(); //Delete incomplete files!
-                            }
-                            catch { }
-                        }
-                        if (WasCancelled) OnFileCopyFailed("Copy Operation Cancelled", cancelled: true);
-                        else if (isFaulted)
-                        {
-                            string copyFailedMessage = !isFaulted ? "Copy Operation Failed" : exceptionData.Message;
-                            OnFileCopyFailed(copyFailedMessage, exceptionData, failed: true);
-                        }
-                    }
-                    Destination.Refresh();
-                }
-            }, TaskCreationOptions.LongRunning);
+                           }
+                           catch (Exception e)
+                           {
+                               if (tries < RetryOptions.RetryCount)
+                               {
+                                   Thread.Sleep(RetryOptions.GetWaitTime());
+                                   tries++;
+                                   goto TryWrite;
+                               }
+                               exceptionData = e;
+                           }
+                           finally
+                           {
+                               try { dest.Close(); } catch { }
+                           }
+                       }
+                   }
+               }
+               catch (Exception e)
+               {
+                   if (tries < RetryOptions.RetryCount)
+                   {
+                       Thread.Sleep(RetryOptions.GetWaitTime());
+                       tries++;
+                       goto TryOpenWrite;
+                   }
+                   exceptionData = e;
+               }
+               finally
+               {
+                   //Set values inditicating that operation has been completed.
+                   bool isFaulted = !(exceptionData is null);
+                   SetEnded(
+                       wasCancelled: CancellationSource?.IsCancellationRequested ?? true,
+                       isCopied: !isFaulted && !WasCancelled && Progress == 100
+                       );
+
+                   //Raise Events
+                   if (IsCopied)
+                   {
+                       if (isMoving)
+                       {
+                           try
+                           {
+                               Source.Delete();
+                           }
+                           catch (Exception e)
+                           {
+                               OnFileCopyFailed("Failed to delete source file after Move was requested.", e);
+                           }
+                           Source.Refresh();
+                       }
+                       OnFileCopyCompleted();
+                   }
+                   else
+                   {
+                       if (File.Exists(Destination.FullName))
+                       {
+                           try
+                           {
+                               Destination.Delete(); //Delete incomplete files!
+                           }
+                           catch { }
+                       }
+                       if (WasCancelled) OnFileCopyFailed("Copy Operation Cancelled", cancelled: true);
+                       else if (isFaulted)
+                       {
+                           string copyFailedMessage = !isFaulted ? "Copy Operation Failed" : exceptionData.Message;
+                           OnFileCopyFailed(copyFailedMessage, exceptionData, failed: true);
+                       }
+                   }
+                   Destination.Refresh();
+               }
+           }, TaskCreationOptions.LongRunning);
             return t;
         }
 
@@ -913,10 +914,10 @@ namespace RFBCodeWorks.RoboSharpExtensions
                     SetEnded(
                             wasCancelled: CancellationSource?.IsCancellationRequested ?? false,
                             isCopied: moved
-                            ); 
+                            );
                     if (moved)
                     {
-                        
+
                         Source.Refresh();
                         Destination.Refresh();
                         OnFileCopyProgressUpdated(100);
@@ -949,7 +950,7 @@ namespace RFBCodeWorks.RoboSharpExtensions
                 Cancel();
                 CancellationSource?.Dispose();
                 CancellationSource = null;
-                
+
                 // TODO: set large fields to null
                 disposedValue = true;
             }
