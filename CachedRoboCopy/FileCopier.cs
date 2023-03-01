@@ -611,9 +611,6 @@ namespace RFBCodeWorks.RoboSharpExtensions
         /// <returns>A an unstarted task that completes when the write operation is cancelled, or when the entire file has been written. <br/> TASK MUST BE STARTED!</returns>
         private Task WriteTask(bool isMoving, Action<FileInfo> SetAttributes = null)
         {
-                        long sizeWritten = 0, SourceLength = Source.Length;
-                                        var progress = sizeWritten / SourceLength * 100;
-                                        OnFileCopyProgressUpdated(progress);
             Task t = new Task(() =>
            {
                int tries = 1;
@@ -628,6 +625,8 @@ namespace RFBCodeWorks.RoboSharpExtensions
                    }
                    else
                    {
+                       double sizeWritten = 0;
+                       long SourceLength = Source.Length;
                        bool flushed = false;
                        using (var dest = Destination.OpenWrite())
                        {
@@ -643,6 +642,7 @@ namespace RFBCodeWorks.RoboSharpExtensions
                                    {
                                        dest.Write(tuple.Item1, 0, tuple.Item2);
                                        sizeWritten += tuple.Item2;
+                                       OnFileCopyProgressUpdated(sizeWritten / SourceLength * 100);
                                    }
                                    else
                                    {
