@@ -10,7 +10,7 @@ using RoboSharp.Results;
 using RoboSharp.EventArgObjects;
 using static RoboSharp.Results.ProgressEstimator;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions
 {
     /// <summary>
     /// ResultsBuilder object for custom IRoboCommand implementations
@@ -35,9 +35,16 @@ namespace RFBCodeWorks.CachedRoboCopy
 
         #region < Properties >
 
-        private IRoboCommand Command { get; }
+        /// <summary>
+        /// The associated <see cref="IRoboCommand"/> object
+        /// </summary>
+        protected IRoboCommand Command { get; }
         private ProgressEstimator ProgressEstimatorField;
-        private List<string> LogLines { get; } = new();
+        
+        /// <summary>
+        /// The private collection of log lines
+        /// </summary>
+        protected List<string> LogLines { get; } = new();
 
         /// <summary>
         /// Gets an array of all the log lines currently logged
@@ -48,7 +55,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// Used to calculate the average speed, and is supplied to the results object when getting results.
         /// </summary>
         public AverageSpeedStatistic AverageSpeed { get; } = new();
-        
+
         /// <summary>
         /// The time the ResultsBuilder was instantiated
         /// </summary>
@@ -57,7 +64,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary>
         /// End Time is set when the summary is created.
         /// </summary>
-        protected DateTime EndTime { get; set; }
+        public DateTime EndTime { get; protected set; }
 
         /// <summary>
         /// Flag to prevent writing the summary to the log multiple times
@@ -77,14 +84,21 @@ namespace RFBCodeWorks.CachedRoboCopy
 
         #region < Add Files >
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="file"></param>
+        /// <inheritdoc cref="ProgressEstimator.AddFile(ProcessedFileInfo)"/>
         public virtual void AddFile(ProcessedFileInfo file)
         {
             ProgressEstimator.AddFile(file);
             if (Command.LoggingOptions.ListOnly) LogFileInfo(file);
+        }
+
+        /// <summary>
+        /// Adds the file to the ProgressEstimator, then sets that the copy operation is started
+        /// </summary>
+        /// <param name="file"></param>
+        public virtual void SetCopyOpStarted(ProcessedFileInfo file)
+        {
+            ProgressEstimator.AddFile(file);
+            ProgressEstimator.SetCopyOpStarted();
         }
 
         /// <summary>
@@ -103,8 +117,17 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <param name="file"></param>
         public virtual void AddFileSkipped(ProcessedFileInfo file)
         {
-            ProgressEstimator.AddFile(file);
+            ProgressEstimator.AddFileSkipped(file);
             LogFileInfo(file, " -- Skipped");
+        }
+
+        /// <summary>
+        /// Mark an file as FAILED
+        /// </summary>
+        public virtual void AddFileFailed(ProcessedFileInfo file)
+        {
+            ProgressEstimator.AddFileFailed(file);
+            LogFileInfo(file, " -- FAILED");
         }
 
         /// <summary>
@@ -117,7 +140,12 @@ namespace RFBCodeWorks.CachedRoboCopy
             LogFileInfo(file, " -- Purged");
         }
 
-        private void LogFileInfo(ProcessedFileInfo file, string suffix = "")
+        /// <summary>
+        /// Write the <paramref name="file"/> and <paramref name="suffix"/> to the logs
+        /// </summary>
+        /// <param name="file"></param>
+        /// <param name="suffix"></param>
+        protected virtual void LogFileInfo(ProcessedFileInfo file, string suffix = "")
         {
             //Check to log the directory listing
             if (!Command.LoggingOptions.NoFileList)
@@ -128,16 +156,19 @@ namespace RFBCodeWorks.CachedRoboCopy
 
         #region < Add Dirs >
 
+        private ProcessedFileInfo LastDir;
+
+
         /// <summary>
-        /// Add a directory to the 
+        /// Add a directory to the log and progressEstimator
         /// </summary>
-        /// <param name="file"></param>
-        public void AddDir(ProcessedFileInfo file)
+        public virtual void AddDir(ProcessedFileInfo dir)
         {
-            ProgressEstimator.AddDir(file);
+            LastDir = dir;
+            ProgressEstimator.AddDir(dir);
             //Check to log the directory listing
             if (!Command.LoggingOptions.NoDirectoryList)
-                WriteToLogs(file.ToString(Command.LoggingOptions));
+                WriteToLogs(dir.ToString(Command.LoggingOptions));
         }
 
         #endregion
@@ -148,25 +179,28 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// Adds a System Message to the logs
         /// </summary>
         /// <param name="info"></param>
-        public void AddSystemMessage(ProcessedFileInfo info) => WriteToLogs(info.FileClass);
+        public virtual void AddSystemMessage(ProcessedFileInfo info) => WriteToLogs(info.FileClass);
 
         /// <summary>
         /// Adds a System Message to the logs
         /// </summary>
         /// <param name="info"></param>
-        public void AddSystemMessage(string info) => WriteToLogs(info);
+        public virtual void AddSystemMessage(string info) => WriteToLogs(info);
 
         #endregion
 
         #region < Create Header / Summary >
 
-        const string Divider = "------------------------------------------------------------------------------";
+        /// <summary>
+        /// Divider string that can be used
+        /// </summary>
+        public const string Divider = "------------------------------------------------------------------------------";
 
         /// <summary>
-        /// RoboCopy uses padding of 9 on the header to align things
+        /// RoboCopy uses padding of 9 on the header to align column details, such as the 'Started' time and 'Source' string
         /// </summary>
         /// <param name="RowName"></param>
-        /// <returns></returns>
+        /// <returns>A padded string</returns>
         protected string PadHeader(string RowName) => RowName.PadLeft(9);
 
         /// <summary>
@@ -179,12 +213,12 @@ namespace RFBCodeWorks.CachedRoboCopy
             {
                 
                 WriteToLogs(Divider);
-                WriteToLogs("   RFBCodeWorks.CachedRoboCopy :: \t An alternative to RoboCopy");
+                WriteToLogs("   RFBCodeWorks.RoboSharpExtensions :: \t An alternative to RoboCopy");
                 WriteToLogs(Divider);
                 WriteToLogs("");
                 WriteToLogs($"{PadHeader("Started")} : {StartTime.ToLongDateString()} {StartTime.ToLongTimeString()}");
                 WriteToLogs($"{PadHeader("Source")} : {Command.CopyOptions.Source}");
-                WriteToLogs($"{PadHeader("Dest")} : {Command.CopyOptions.Source}");
+                WriteToLogs($"{PadHeader("Dest")} : {Command.CopyOptions.Destination}");
                 WriteToLogs("");
                 if (Command.CopyOptions.FileFilter.Any())
                     WriteToLogs($"{PadHeader("Files")} : {String.Concat(Command.CopyOptions.FileFilter.Select(filter => filter + " "))}");
@@ -242,7 +276,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             string Align(int columnSize, long value) => RightAlign(columnSize, value.ToString());
 
             int[] ColSizes = GetColumnSizes();
-            string SummaryLine() => string.Format("\t{0}{1}\t{2}\t{3}\t{4}\t{5}\t{6}", "", RightAlign(ColSizes[0],"Total"), RightAlign(ColSizes[1], "Copied"), RightAlign(ColSizes[2], "Skipped"), RightAlign(ColSizes[3], "Mismatch"), RightAlign(ColSizes[4], "FAILED"), RightAlign(ColSizes[5], "Extras"));
+            string SummaryLine() => string.Format("    {0}{1}\t{2}\t{3}\t{4}\t{5}\t{6}", PadHeader(""), RightAlign(ColSizes[0],"Total"), RightAlign(ColSizes[1], "Copied"), RightAlign(ColSizes[2], "Skipped"), RightAlign(ColSizes[3], "Mismatch"), RightAlign(ColSizes[4], "FAILED"), RightAlign(ColSizes[5], "Extras"));
             string Tabulator(string name, IStatistic stat) => string.Format("{0} : {1}\t{2}\t{3}\t{4}\t{5}\t{6}", PadHeader(name), Align(ColSizes[0], stat.Total), Align(ColSizes[1], stat.Copied), Align(ColSizes[2], stat.Skipped), Align(ColSizes[3], stat.Mismatch), Align(ColSizes[4], stat.Failed), Align(ColSizes[5], stat.Extras));
 
             if (IsSummaryCreated) return;

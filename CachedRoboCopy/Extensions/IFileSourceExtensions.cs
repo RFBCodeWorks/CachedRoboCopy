@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Linq;
-using RFBCodeWorks.CachedRoboCopy;
+using RFBCodeWorks.RoboSharpExtensions;
 using System.IO;
 
-namespace RFBCodeWorks.CachedRoboCopy.Extensions
+namespace RFBCodeWorks.RoboSharpExtensions.Extensions
 {
 
     /// <summary>

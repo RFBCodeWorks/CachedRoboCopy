@@ -11,8 +11,9 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using RoboSharp.Extensions;
+using System.Collections.ObjectModel;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions
 {
     /// <summary>
     /// This is a list of <see cref="FileCopier"/> objects that provides for the <see cref="IRoboCommand"/> interface.
@@ -29,29 +30,28 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary>
         /// Create a new FileCopierCommand
         /// </summary>
-        public FileCopierCommand() : base() 
+        public FileCopierCommand() : base()
         {
             base.CopyOptions.MultiThreadedCopiesCount = 1;
+            FileCopiers = new ReadOnlyCollection<IFileCopier>(FileCopiersCollection);
         }
 
         /// <summary>
         /// Create a new FileCopierCommand with the provided copiers
         /// </summary>
         /// <param name="copiers"></param>
-        public FileCopierCommand(params IFileCopier[] copiers) : base()
+        public FileCopierCommand(params IFileCopier[] copiers) : this()
         {
-            FileCopiers.AddRange(copiers);
-            base.CopyOptions.MultiThreadedCopiesCount = 1;
+            FileCopiersCollection.AddRange(copiers);
         }
 
         /// <summary>
         /// Create a new FileCopierCommand with the provided copiers
         /// </summary>
         /// <param name="copiers"></param>
-        public FileCopierCommand(IEnumerable<IFileCopier> copiers) : base()
+        public FileCopierCommand(IEnumerable<IFileCopier> copiers) : this()
         {
-            FileCopiers.AddRange(copiers);
-            base.CopyOptions.MultiThreadedCopiesCount = 1;
+            FileCopiersCollection.AddRange(copiers);
         }
 
         #region < Properties >
@@ -59,8 +59,21 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary>
         /// The FileCopier objects that get run with this Start method is called
         /// </summary>
-        public ObservableList<IFileCopier> FileCopiers { get; } = new ObservableList<IFileCopier>();
+        public IReadOnlyCollection<IFileCopier> FileCopiers { get; }
+        private ConcurrentList<IFileCopier> FileCopiersCollection { get; } = new ConcurrentList<IFileCopier>();
 
+        /// <summary>
+        /// Factory to be used by <see cref="AddCommand(string, string)"/> and <see cref="AddCommand(FileInfo, DirectoryInfo)"/>
+        /// </summary>
+        /// <remarks>
+        /// If not specified, will use the default factory
+        /// </remarks>
+        public IFileCopierFactory FileCopierFactory
+        {
+            get => fileCopierFactory ?? RoboSharpExtensions.FileCopier.Factory;
+            init => fileCopierFactory = value;
+        }
+        private IFileCopierFactory fileCopierFactory;
 
         /// <summary>
         /// Not fully implemented. Relevant options include:
@@ -113,13 +126,43 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// Add the copiers to the list
         /// </summary>
         /// <param name="copier"></param>
-        public void AddCommand(params IFileCopier[] copier) => this.FileCopiers.AddRange(copier);
+        public void AddCommand(params IFileCopier[] copier) => this.FileCopiersCollection.AddRange(copier);
 
         /// <summary>
         /// Add the copiers to the list
         /// </summary>
         /// <param name="copier"></param>
-        public void AddCommand(IEnumerable<IFileCopier> copier) => this.FileCopiers.AddRange(copier);
+        public void AddCommand(IEnumerable<IFileCopier> copier) => this.FileCopiersCollection.AddRange(copier);
+
+        /// <summary>
+        /// Create a new <see cref="FileCopier"/> and add it to the list
+        /// </summary>
+        /// <inheritdoc cref="FileCopier.FileCopier(string, string)"/>
+        /// <returns>The newly created <see cref="FileCopier"/></returns>
+        public IFileCopier AddCommand(string source, string destination)
+        {
+            IFileCopier f = FileCopierFactory.CreateFileCopier(source, destination);
+            this.AddCommand(f);
+            return f;
+        }
+
+        /// <summary>
+        /// Create a new <see cref="FileCopier"/> and add it to the list
+        /// </summary>
+        /// <inheritdoc cref="FileCopier.FileCopier(FileInfo, DirectoryInfo)"/>
+        /// <returns>The newly created <see cref="FileCopier"/></returns>
+        public IFileCopier AddCommand(FileInfo source, DirectoryInfo destinationDirectory)
+        {
+            IFileCopier f = FileCopierFactory.CreateFileCopier(source, destinationDirectory);
+            this.AddCommand(f);
+            return f;
+        }
+
+        /// <summary>
+        /// Gets the results builder that will be used by the <see cref="Start(string, string, string)"/> method
+        /// </summary>
+        /// <returns></returns>
+        protected virtual ResultsBuilder GetResultsBuilder() { return new(this); }
 
         /// <inheritdoc/>
         public override Task Start(string domain = "", string username = "", string password = "")
@@ -129,7 +172,7 @@ namespace RFBCodeWorks.CachedRoboCopy
             IsCancelled = false;
             IsRunning = true;
             CancellationSource = new CancellationTokenSource();
-            var resultsBuilder = new ResultsBuilder(this);
+            var resultsBuilder = GetResultsBuilder();
             RaiseOnProgressEstimatorCreated(resultsBuilder.ProgressEstimator);
             
 
@@ -141,7 +184,7 @@ namespace RFBCodeWorks.CachedRoboCopy
 
                 bool move = !CopyOptions.Mirror && (CopyOptions.MoveFiles | CopyOptions.MoveFilesAndDirectories);
 
-                foreach (IFileCopier copier in FileCopiers)
+                foreach (IFileCopier copier in FileCopiersCollection)
                 {
                     #region < Setup the Events and Continuation Task >
 
@@ -164,9 +207,10 @@ namespace RFBCodeWorks.CachedRoboCopy
                     copier.Destination.Refresh();
                     evaluator.ShouldCopyFile(copier, out var info);
                     copier.RoboSharpFileInfo = info;
-                    copier.RoboSharpDirectoryInfo = new ProcessedFileInfo(Path.GetDirectoryName(copier.Source.FullName), FileClassType.NewDir, this.Configuration.GetDirectoryClass(DirectoryClasses.ExistingDir), 1);
+                    copier.RoboSharpDirectoryInfo ??= new ProcessedFileInfo(Path.GetDirectoryName(copier.Source.FullName), FileClassType.NewDir, this.Configuration.GetDirectoryClass(DirectoryClasses.ExistingDir), 1);
 
                     resultsBuilder.AddFile(copier.RoboSharpFileInfo);
+                    RaiseOnFileProcessed(copier.RoboSharpFileInfo);
 
                     //Check if it can copy, or if there is a need to copy.
                     bool canCopy = !copier.IsExtra() && (copier.IsLonely() || !(copier.IsSameDate() && copier.Source.Length == copier.Destination.Length));
@@ -174,11 +218,13 @@ namespace RFBCodeWorks.CachedRoboCopy
 
                     if (canCopy)
                     {
+                        
+                        copier.RetryOptions = this.RetryOptions;
                         resultsBuilder.ProgressEstimator.SetCopyOpStarted();
                         if (move)
-                            copyTask = copier.Move(RetryOptions);
+                            copyTask = copier.Move(true, evaluator.ApplyAttributes);
                         else
-                            copyTask = copier.Copy(RetryOptions);
+                            copyTask = copier.Copy(true, evaluator.ApplyAttributes);
                     }
                     else
                         copyTask = Task.FromResult(false);
@@ -214,7 +260,10 @@ namespace RFBCodeWorks.CachedRoboCopy
                 }
 
                 await Task.WhenAll(queue);
-                
+                var results = resultsBuilder.GetResults();
+                SaveResults(results);
+                RaiseOnCommandCompleted(results);
+
             }, CancellationSource.Token);
             
             return moveOp.ContinueWith(MoveOpContinuation);
@@ -246,10 +295,18 @@ namespace RFBCodeWorks.CachedRoboCopy
             {
                 if (e.WasCancelled)
                     resultsBuilder.AddSystemMessage($@"Copy Operation Cancelled --> {e.Destination.FullName}");
-                //else if (e.WasSkipped)
-                //    LogLines.Add($@"Copy Operation Skipped ( {e.Error} )--> {e.Destination.FullName}");
                 else
-                    resultsBuilder.AddSystemMessage($@"Copy Operation Failed --> {e.Destination.FullName}");
+                {
+                    if (sender is IFileCopier f)
+                    {
+                        resultsBuilder.AddFileFailed(f.RoboSharpFileInfo);
+                    }
+                    else
+                    {
+                        resultsBuilder.AddSystemMessage($@"Copy Operation Failed --> {e.Destination.FullName}");
+                    }
+                    RaiseOnError(new RoboSharp.ErrorEventArgs(e.Exception, e.Destination.FullName, DateTime.Now));
+                }
             }
 
             #endregion
@@ -260,7 +317,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         {
             if (IsRunning && !IsCancelled)
             {
-                foreach (var c in FileCopiers)
+                foreach (var c in FileCopiersCollection)
                     c.Cancel();
                 this.CancellationSource?.Cancel();
                 IsCancelled = true;
@@ -273,13 +330,13 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <inheritdoc/>
         public IEnumerator<IFileCopier> GetEnumerator()
         {
-            return ((IEnumerable<IFileCopier>)FileCopiers).GetEnumerator();
+            return ((IEnumerable<IFileCopier>)FileCopiersCollection).GetEnumerator();
         }
 
         /// <inheritdoc/>
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return ((IEnumerable)FileCopiers).GetEnumerator();
+            return ((IEnumerable)FileCopiersCollection).GetEnumerator();
         }
 
         #endregion

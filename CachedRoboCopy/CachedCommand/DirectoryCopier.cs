@@ -6,10 +6,11 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions.CachedCommand
 {
     /// <summary>
     /// Class designed to facilitate the Copy/Move functionality for a directory
@@ -19,7 +20,7 @@ namespace RFBCodeWorks.CachedRoboCopy
 
         #region < Constructors >
 
-        public DirectoryCopier(string sourceDir, string destinationDir)
+        public DirectoryCopier(string sourceDir, string destinationDir, PairEvaluator evaluator)
         {
             if (string.IsNullOrWhiteSpace(sourceDir)) throw new ArgumentException("parameter is null or empty", nameof(sourceDir));
             if (string.IsNullOrWhiteSpace(destinationDir)) throw new ArgumentException("parameter is null or empty", nameof(destinationDir));
@@ -32,28 +33,27 @@ namespace RFBCodeWorks.CachedRoboCopy
 
             this.Source = source;
             this.Destination = dest;
+            Evaluator = evaluator;
             Refresh();
         }
 
-        public DirectoryCopier(DirectoryInfo sourceDir, DirectoryInfo destinationDir)
+        public DirectoryCopier(DirectoryInfo sourceDir, DirectoryInfo destinationDir, PairEvaluator evaluator)
         {
             this.Source = sourceDir ?? throw new ArgumentNullException(nameof(sourceDir));
             this.Destination = destinationDir ?? throw new ArgumentNullException(nameof(destinationDir));
+            Evaluator = evaluator;
             Refresh();
         }
 
-        public DirectoryCopier(IDirectoryPair directoryPair)
+        public DirectoryCopier(IDirectoryPair directoryPair, PairEvaluator evaluator)
         {
             if (directoryPair is null) throw new ArgumentNullException(nameof(directoryPair));
             this.Source = directoryPair?.Source ?? throw new ArgumentNullException("Source");
             this.Destination = directoryPair?.Destination ?? throw new ArgumentNullException("Destination");
+            Evaluator = evaluator;
             Refresh();
         }
 
-
-        #endregion
-
-        #region < Static Properties & Constants >
 
         #endregion
 
@@ -152,6 +152,8 @@ namespace RFBCodeWorks.CachedRoboCopy
 
         //private CancellationTokenSource CancellationSource;
 
+        private PairEvaluator Evaluator;
+
         /// <summary>
         /// The Source Directory
         /// </summary>
@@ -218,8 +220,6 @@ namespace RFBCodeWorks.CachedRoboCopy
 
         //DirectoryInfo IDirectorySourceDestinationPair.Destination => Destination.DirectoryInfo;
 
-
-
         #endregion
 
         #region < Object Methods >
@@ -263,34 +263,31 @@ namespace RFBCodeWorks.CachedRoboCopy
                 goto tryDelete;
             }
         }
-
-        /// <summary>
-        /// Generate the FileCopiers
-        /// </summary>
-        /// <returns></returns>
-        private FileCopier[] GetFileCopiers()
-        {
-            return DirectoryPairExtensions.GetFilePairs(this, (i1, i2) => new FileCopier(i1, i2));
-        }
-
+        
         /// <summary>
         /// Generate the FileCopiers
         /// </summary>
         /// <returns></returns>
         private CachedEnumerable<FileCopier> GetFileCopiersEnumerable()
         {
-            return DirectoryPairExtensions.EnumerateFilePairs(this, (i1, i2) => new FileCopier(i1, i2));
+            var sourceFiles = DirectoryPairExtensions.EnumerateSourcePairs(this, Evaluator.ShouldIncludeFileName, FileCopier.CreateNew);
+
+            bool includeDest(FileInfo f)
+            {
+                if (sourceFiles?.Any(p => p.Destination.FullName == f.FullName) ?? false) return false;
+                bool reportExtras = Evaluator.AssociatedCommand.LoggingOptions.ReportExtraFiles;
+                return reportExtras || Evaluator.ShouldIncludeFileName(f);
+            }
+            var destFiles = DirectoryPairExtensions.EnumerateDestinationPairs(this, includeDest, FileCopier.CreateNew);
+            if (destFiles?.Any() ?? false)
+            {
+                if (sourceFiles?.Any() ?? false)
+                    return sourceFiles.Concat(destFiles).AsCachedEnumerable();
+                return destFiles;
+            }
+            return sourceFiles;
         }
 
-
-        /// <summary>
-        /// Generate the DirectoryCopiers
-        /// </summary>
-        /// <returns></returns>
-        private DirectoryCopier[] GetDirectoryCopiers()
-        {
-            return DirectoryPairExtensions.GetDirectoryPairs(this, (i, i2) => new DirectoryCopier(i, i2));
-        }
 
         /// <summary>
         /// Generate the DirectoryCopiers
@@ -298,8 +295,10 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <returns></returns>
         private CachedEnumerable<DirectoryCopier> GetDirectoryCopiersEnumerable()
         {
-            return DirectoryPairExtensions.EnumerateDirectoryPairs(this, (i, i2) => new DirectoryCopier(i, i2));
+            return DirectoryPairExtensions.EnumerateDirectoryPairs(this, CreateNew);
         }
+
+        private DirectoryCopier CreateNew(DirectoryInfo sourceDir, DirectoryInfo destinationDir) => new(sourceDir, destinationDir, this.Evaluator);
 
         #endregion
 

@@ -6,7 +6,7 @@ using System.Threading;
 using System.Linq;
 using System.IO;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions
 {
     internal static class MiscExtensions
     {
@@ -32,7 +32,6 @@ namespace RFBCodeWorks.CachedRoboCopy
 
         #endregion
 
-
         /// <summary>
         /// Check if the directory has any files
         /// </summary>
@@ -52,6 +51,6 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// </summary>
         /// <param name="dir"></param>
         /// <returns>TRUE HasFiles and HasSubdirectories are both false (meaning there are no children). FALSE is any files/subdirectories exist.</returns>
-        public static bool IsEmpty(this DirectoryInfo dir) => !dir.HasFiles() && dir.HasSubDirectories();
+        public static bool IsEmpty(this DirectoryInfo dir) => !dir.HasFiles() && !dir.HasSubDirectories();
     }
 }

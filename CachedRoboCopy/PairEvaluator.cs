@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using RoboSharp.Extensions;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions
 {
     /// <summary>
     /// Class that can be instantiated to cache the various values that get checked against when deciding to copy a file or folder.
@@ -122,17 +122,23 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// </summary>
         /// <param name="info">a ProcessedFileInfo object generated that reflects the output of this method</param>
         /// <param name="pair">the pair of Source/Destination to compare</param>
-        /// <returns>TRUE if the file should be copied, FALSE if the file should be skiped</returns>
+        /// <returns>TRUE if the file should be copied/moved, FALSE if the file should be skiped</returns>
         /// <remarks>
-        /// Note: Does not evaluate the FileName inclusions from CopyOptions, since RoboCopy appears to use those to filter prior to performing these evaluations. 
+        /// Note: Does not evaluate the FileName inclusions from CopyOptions, since RoboCopy appears to use those to filter prior to performing these evaluations. <br/>
+        /// Use <see cref="ShouldIncludeFileName(IFilePair)"/> as a pre-filter for this.
         /// </remarks>
         public virtual bool ShouldCopyFile(IFilePair pair, out ProcessedFileInfo info)
         {
+            bool SourceExists = pair.Source.Exists;
+            bool DestExists = pair.Destination.Exists;
+            string Name = AssociatedCommand.LoggingOptions.IncludeFullPathNames ?
+                (DestExists & !SourceExists ? pair.Destination.FullName : pair.Source.FullName) :
+                (DestExists & !SourceExists ? pair.Destination.Name : pair.Source.Name);
             info = new ProcessedFileInfo()
             {
                 FileClassType = FileClassType.File,
-                Name = AssociatedCommand.LoggingOptions.IncludeFullPathNames ? pair.Source.FullName : pair.Source.Name,
-                Size = pair.Source.Length,
+                Name = Name,
+                Size = SourceExists ? pair.Source.Length : DestExists? pair.Destination.Length : 0,
             };
             var SO = AssociatedCommand.SelectionOptions;
 
@@ -142,8 +148,8 @@ namespace RFBCodeWorks.CachedRoboCopy
             if (pair.IsExtra())// SO.ShouldExcludeExtra(pair))
             {
                 info.SetFileClass(FileClasses.ExtraFile, AssociatedCommand.Configuration);
-                info.Name = AssociatedCommand.LoggingOptions.IncludeFullPathNames ? pair.Destination.FullName : pair.Destination.Name;
-                info.Size = pair.Destination.Length;
+                //info.Name = AssociatedCommand.LoggingOptions.IncludeFullPathNames ? pair.Destination.FullName : pair.Destination.Name; //Already Handled in ctor
+                //info.Size = pair.Destination.Length;  //Already handled in ctor
                 return false;
             }
             //Lonely
@@ -253,10 +259,27 @@ namespace RFBCodeWorks.CachedRoboCopy
             var filters = AssociatedCommand.CopyOptions.FileFilter;
             if (filters.Any() && filters.All(s => s != "*.*" && s != "*"))
                 return collection
-                .Where(P => AssociatedCommand.CopyOptions.ShouldIncludeFileName(P, ref IncludeFileNameRegexField))
+                .Where(P => ShouldIncludeFileName(P))
                 .AsCachedEnumerable();
             else
                 return collection is CachedEnumerable<T> enumerable ? enumerable : collection.AsCachedEnumerable();
+        }
+
+        /// <inheritdoc cref="CopyOptionsExtensions.ShouldIncludeFileName(CopyOptions, IFilePair, ref Regex[])"/>
+        public bool ShouldIncludeFileName(IFilePair pair)
+        {
+            return AssociatedCommand.CopyOptions.ShouldIncludeFileName(pair, ref IncludeFileNameRegexField);
+        }
+
+        /// <inheritdoc cref="CopyOptionsExtensions.ShouldIncludeFileName(CopyOptions, IFilePair, ref Regex[])"/>
+        public bool ShouldIncludeFileName(FileInfo file)
+        {
+            return AssociatedCommand.CopyOptions.ShouldIncludeFileName(file, ref IncludeFileNameRegexField);
+        }
+        /// <inheritdoc cref="CopyOptionsExtensions.ShouldIncludeFileName(CopyOptions, IFilePair, ref Regex[])"/>
+        public bool ShouldIncludeFileName(string file)
+        {
+            return AssociatedCommand.CopyOptions.ShouldIncludeFileName(file, ref IncludeFileNameRegexField);
         }
 
         #endregion

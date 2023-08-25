@@ -6,7 +6,7 @@ using System.Text;
 using System.Linq;
 using RoboSharp.Interfaces;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions
 {
     /// <summary>
     /// An object that represents a directory that can be copied from
