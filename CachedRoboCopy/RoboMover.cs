@@ -163,6 +163,7 @@ namespace RFBCodeWorks.RoboSharpExtensions
                 {
                     if (!LoggingOptions.ListOnly)
                     {
+                        resultsBuilder.SetCopyOpStarted(pInfo);
                         file.CopyFailed += File_CopyFailed;
                         await file.Move(true).ContinueWith(t =>
                        {
