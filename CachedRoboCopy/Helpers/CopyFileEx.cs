@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace RFBCodeWorks.CachedRoboCopy.CopyFileEx
+namespace RFBCodeWorks.RoboSharpExtensions.CopyFileEx
 {
 
     #region < Enums >

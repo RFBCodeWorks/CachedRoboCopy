@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace RFBCodeWorks.CachedRoboCopy.Tests
+namespace RFBCodeWorks.RoboSharpExtensions.Tests
 {
     [TestClass]
     public class CachedRoboCommandEventTests : RoboSharp.Tests.RoboCommandEventTests

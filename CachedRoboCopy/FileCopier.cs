@@ -10,10 +10,11 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
-using RFBCodeWorks.CachedRoboCopy.CopyFileEx;
+using RFBCodeWorks.RoboSharpExtensions.CopyFileEx;
 using RoboSharp.Extensions;
+using System.Collections.Concurrent;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions
 {
     /// <summary>
     /// An optimized File-Copier that reports file copy progress, and optimizes the 'Move' functionality if the file exists on the same drive.
@@ -21,35 +22,20 @@ namespace RFBCodeWorks.CachedRoboCopy
     public class FileCopier : IFileCopier, INotifyPropertyChanged, IDisposable, IFilePair
     {
 
+        /// <summary>
+        /// Gets the default <see cref="FileCopierFactory"/> provided by the library <br/> This is a static singleton.
+        /// </summary>
+        public static FileCopierFactory Factory { get => backerField ??= new(); }
+        private static FileCopierFactory backerField;
+
         #region < Constructors >
 
         /// <summary>
-        /// Create a new RoboMoverItem by supplied file paths
-        /// </summary>
-        /// <param name="source">Fully Qualified Source File Path</param>
-        /// <param name="destination">Fully Qualified Destination File Path</param>
-        public FileCopier(string source, string destination)
-        {
-            //Source
-            if (string.IsNullOrWhiteSpace(source)) throw new ArgumentException("No Destination Path Specified", nameof(source));
-            if (!Path.IsPathRooted(source)) throw new ArgumentException("Path is not rooted", nameof(source));
-            if (string.IsNullOrEmpty(Path.GetFileName(source))) throw new ArgumentException("No FileName Provided", nameof(source));
-
-            //Destination
-            if (string.IsNullOrWhiteSpace(destination)) throw new ArgumentException("No Destination Path Specified", nameof(destination));
-            if (!Path.IsPathRooted(destination)) throw new ArgumentException("Path is not rooted", nameof(destination));
-            if (string.IsNullOrEmpty(Path.GetFileName(destination))) throw new ArgumentException("No FileName Provided", nameof(destination));
-
-            Source = new FileInfo(source);
-            Destination = new FileInfo(destination);
-        }
-
-
-        /// <summary>
-        /// Create a new RoboMoverItem by supplied file paths
+        /// Create a new FileCopier from the supplied file paths
         /// </summary>
         /// <param name="source">FileInfo object that represents the source file</param>
         /// <param name="destination">FileInfo object that represents the destination file</param>
+        /// <exception cref="ArgumentNullException"/>
         public FileCopier(FileInfo source, FileInfo destination)
         {
             if (source is null) throw new ArgumentNullException(nameof(source));
@@ -60,13 +46,19 @@ namespace RFBCodeWorks.CachedRoboCopy
         }
 
         /// <inheritdoc cref="FileCopier.FileCopier(FileInfo, FileInfo)"/>
-        public static FileCopier CreateNew(FileInfo source, FileInfo destination) => new FileCopier(source, destination);
+        /// <inheritdoc cref="EvaluateSource(string)"/>
+        /// <inheritdoc cref="EvaluateDestination(string)"/>
+        public FileCopier(string source, string destination)
+        {
+            EvaluateSource(source);
+            EvaluateDestination(destination);
+            Source = new FileInfo(source);
+            Destination = new FileInfo(destination);
+        }
 
-        /// <summary>
-        /// Create a new RoboMoverItem by supplied file paths
-        /// </summary>
-        /// <param name="source">FileInfo object that represents the source file</param>
         /// <param name="destinationDirectory">The Directory that the file will be copied into</param>
+        /// <inheritdoc cref="FileCopier.FileCopier(FileInfo, FileInfo)"/>
+        /// <param name="source"/>
         public FileCopier(FileInfo source, DirectoryInfo destinationDirectory)
         {
             if (source is null) throw new ArgumentNullException(nameof(source));
@@ -76,14 +68,61 @@ namespace RFBCodeWorks.CachedRoboCopy
         }
 
         /// <summary>
-        /// Used for synchronizing the items network to local
+        /// Create a new FileCopier from the provided IFilePair
         /// </summary>
+        /// <exception cref="ArgumentNullException"/>
         public FileCopier(IFilePair FilePair)
         {
             if (FilePair is null) throw new ArgumentNullException(nameof(FilePair));
             Source = FilePair?.Source ?? throw new ArgumentNullException("Source");
             Destination = FilePair?.Destination ?? throw new ArgumentNullException("Destination");
         }
+
+        /// <summary>
+        /// Evaluate the <paramref name="source"/> Path to ensure its a fully qualified file path
+        /// </summary>
+        /// <param name="source">Fully Qualified Source File Path</param>
+        /// <inheritdoc cref="EvaluateDestination(string)"/>
+        public static void EvaluateSource(string source)
+        {
+            if (source is null) throw new ArgumentNullException(nameof(source));
+            if (string.IsNullOrWhiteSpace(source)) throw new ArgumentException("No Source Path Specified", nameof(source));
+            if (!Path.IsPathRooted(source)) throw new ArgumentException("Source Path is not rooted", nameof(source));
+            if (string.IsNullOrEmpty(Path.GetFileName(source))) throw new ArgumentException("No FileName Provided in Source", nameof(source));
+        }
+
+        /// <summary>
+        /// Evaluate the <paramref name="destination"/> Path to ensure its a fully qualified file path.
+        /// </summary>
+        /// <param name="destination">Fully Qualified Destination File Path</param>
+        /// <exception cref="ArgumentException"/>
+        /// <exception cref="ArgumentNullException"/>
+        public static void EvaluateDestination(string destination)
+        {
+            if (destination is null) throw new ArgumentNullException(nameof(destination));
+            if (string.IsNullOrWhiteSpace(destination)) throw new ArgumentException("No Destination Path Specified", nameof(destination));
+            if (!Path.IsPathRooted(destination)) throw new ArgumentException("Destination Path is not rooted", nameof(destination));
+            if (string.IsNullOrEmpty(Path.GetFileName(destination))) throw new ArgumentException("No Destination FileName Provided", nameof(destination));
+        }
+
+        /// <returns>TRUE if the path is fully qualified, otherwise false.</returns>
+        /// <inheritdoc cref="EvaluateDestination(string)"/>
+        public static bool TryEvaluateDestination(string destination, out Exception ex)
+        {
+            ex = null;
+            try { EvaluateDestination(destination); return true; } catch (Exception e) { ex = e; return false; }
+        }
+
+        /// <returns>TRUE if the path is fully qualified, otherwise false.</returns>
+        /// <inheritdoc cref="EvaluateSource(string)"/>
+        public static bool TryEvaluateSource(string source, out Exception ex)
+        {
+            ex = null;
+            try { EvaluateSource(source); return true; } catch (Exception e) { ex = e; return false; }
+        }
+
+        /// <inheritdoc cref="FileCopier.FileCopier(FileInfo, FileInfo)"/>
+        public static FileCopier CreateNew(FileInfo source, FileInfo destination) => new FileCopier(source, destination);
 
         #endregion
 
@@ -103,7 +142,13 @@ namespace RFBCodeWorks.CachedRoboCopy
         protected virtual void OnFileCopyProgressUpdated(double progress)
         {
             Progress = progress;
-            CopyProgressUpdated?.Invoke(this, new FileCopyProgressUpdatedEventArgs(progress, Source, Destination, RoboSharpFileInfo, RoboSharpDirectoryInfo));
+            if (CopyProgressUpdated != null)
+            {
+                var args = new FileCopyProgressUpdatedEventArgs(progress, this, RoboSharpFileInfo, RoboSharpDirectoryInfo);
+                this.RoboSharpFileInfo ??= args.RoboSharpFileInfo;
+                this.RoboSharpDirectoryInfo ??= args.RoboSharpDirInfo;
+                CopyProgressUpdated?.Invoke(this, args);
+            }
         }
 
         #endregion
@@ -121,7 +166,7 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary> Raises the FileCopyCompleted event </summary>
         protected virtual void OnFileCopyCompleted()
         {
-            CopyCompleted?.Invoke(this, new FileCopyCompletedEventArgs(Source, Destination, StartDate, EndDate, RoboSharpFileInfo, RoboSharpDirectoryInfo));
+            CopyCompleted?.Invoke(this, new FileCopyCompletedEventArgs(this, StartDate, EndDate, RoboSharpFileInfo, RoboSharpDirectoryInfo));
         }
 
         #endregion
@@ -179,8 +224,6 @@ namespace RFBCodeWorks.CachedRoboCopy
 
         #region < Properties >
 
-        private CancellationTokenSource CancellationSource;
-
         #region < File Info >
 
         /// <summary>
@@ -199,10 +242,20 @@ namespace RFBCodeWorks.CachedRoboCopy
         public FileInfo Destination { get; }
 
         /// <summary>
+        /// Retry Options
+        /// </summary>
+        public RetryOptions RetryOptions
+        {
+            get => RetryOptionsField ??= new RetryOptions();
+            set { if (value != null) RetryOptionsField = value; }
+        }
+        private RetryOptions RetryOptionsField;
+
+        /// <summary>
         /// This object's FileInfo
         /// </summary>
         public RoboSharp.ProcessedFileInfo RoboSharpFileInfo { get; set; }
-        
+
         /// <summary>
         /// The Parent's info
         /// </summary>
@@ -217,6 +270,11 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// 
         /// </summary>
         public long Bytes => Source.Exists ? Source.Length : Destination.Length;
+
+        /// <summary>
+        /// TRUE is the copier was paused while it was running, otherwise false.
+        /// </summary>
+        public bool IsPaused { get; private set; }
 
         #endregion
 
@@ -313,190 +371,378 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// Run the Copy Operation
         /// </summary>
         /// <param name="overWrite"></param>
-        /// <param name="RaiseFailedEvent">TRUE to raise the Failed event after an exception from copying</param>
+        /// <param name="IsMoveOperation">TRUE to if the source should be deleted after successfully finishing copying.</param>
         /// <returns>True if the file was copied successfully, otherwise false</returns>
-        private Task<bool> RunCopyOperation(bool overWrite, bool RaiseFailedEvent)
+        /// <inheritdoc cref="WriteTask(bool, Action{FileInfo})"/>
+        /// <param name="SetAttributes"/>
+        private Task RunOperation(bool overWrite, bool IsMoveOperation, Action<FileInfo> SetAttributes = null)
         {
+            if (IsCopying) throw new Exception("Copy Operation Already in progress!");
+
+            SetStarted();
             if (!overWrite && File.Exists(Destination.FullName))
             {
                 OnFileCopyFailed("Destination file already exists", cancelled: true);
+                SetEnded(false, false);
                 return Task.FromResult(false);
             }
-            
-            if (IsCopying) throw new Exception("Copy Operation Already in progress!");
 
+
+
+            var read = GetReadTask();
+            var write = WriteTask(IsMoveOperation, SetAttributes);
+            read.Start();
+            write.Start();
+            return Task.WhenAll(read, write);
+        }
+
+        ///// <summary> Custom written copy operation that handles the read/write </summary>
+        ///// <returns> TRUE if successful, false is not </returns>
+        ///// <remarks> <see href="https://stackoverflow.com/questions/6044629/file-copy-with-progress-bar"/></remarks>
+        ///// Was providing approx 3-5 MegaBytes per minute in my testing
+        //private bool SingleBufferCopy()
+        //{
+        //    byte[] buffer = new byte[1024 * 1024]; // 1MB buffer
+
+        //    using (FileStream source = Source.OpenRead())
+        //    {
+        //        long fileLength = source.Length;
+        //        if (Destination.Exists) Destination.Delete();
+        //        using (FileStream dest = new FileStream(Destination.FullName, FileMode.CreateNew, FileAccess.Write))
+        //        {
+        //            long totalBytes = 0;
+        //            int currentBlockSize = 0;
+
+        //            while ((currentBlockSize = source.Read(buffer, 0, buffer.Length)) > 0)
+        //            {
+        //                totalBytes += currentBlockSize;
+        //                double percentage = (double)totalBytes * 100.0 / fileLength;
+
+        //                dest.Write(buffer, 0, currentBlockSize);
+
+        //                OnFileCopyProgressUpdated(percentage);
+        //                if (CancellationSource.IsCancellationRequested)
+        //                {
+        //                    return false;
+        //                }
+        //            }
+        //        }
+        //    }
+        //    return true;
+        //}
+
+        ///// <summary> Custom written copy operation that handles the read/write </summary>
+        ///// <returns> TRUE if successful, false is not </returns>
+        ///// <remarks> <see href="https://stackoverflow.com/questions/6044629/file-copy-with-progress-bar"/></remarks>
+        ///// Was providing approx 3-5 MegaBytes per minute in my testing
+        //private bool DoubleBufferCopy()
+        //{
+        //    const int bufferSize = 1024 * 1024;  //1MB
+        //    byte[] buffer = new byte[bufferSize], buffer2 = new byte[bufferSize];
+        //    bool swap = false;
+        //    double reportedProgress = 0, progress;
+        //    int read = 0;
+        //    long len = Source.Length;    
+        //    float flen = len;
+        //    Task writer = null;
+
+        //    Destination.Delete();
+        //    using (var source = Source.OpenRead())
+        //    using (var dest = Destination.OpenWrite())
+        //    {
+        //        dest.SetLength(source.Length);
+        //        for (long size = 0; size < len; size += read)
+        //        {
+        //            if ((progress = size / flen * 100) != reportedProgress)
+        //                OnFileCopyProgressUpdated(reportedProgress = progress);
+
+        //            read = source.Read(swap ? buffer : buffer2, 0, bufferSize);
+        //            writer?.Wait();  // if < .NET4 // if (writer != null) writer.Wait(); 
+        //            writer = dest.WriteAsync(swap ? buffer : buffer2, 0, read);
+        //            swap = !swap;
+        //            if (CancellationSource.IsCancellationRequested)
+        //                return false;
+        //        }
+        //        writer?.Wait();  //Fixed - Thanks @sam-hocevar
+        //        OnFileCopyProgressUpdated(100);
+        //    }
+        //    return true;
+        //}
+
+
+        #region < Fields for use by tasks >
+
+        /// <summary>
+        /// The buffer size to read for each segment of the file
+        /// </summary>
+        /// <remarks>
+        /// 1MB
+        /// </remarks>
+        const int bufferSize = 1 * 1024 * 1024; // 1MB
+        /// <summary>
+        /// The max buffer size to load into memory from a single file (this is to prevent reading a very large file into memory, and filling up memory completely before the file can be written) <br/>
+        /// This is the maximum number of items that can be in the <see cref="BytesReadQueue"/> queue
+        /// </summary>
+        /// <remarks>
+        /// 100 MB
+        /// </remarks>
+        const int bufferMax = (100 * 1024 * 1024) / bufferSize;
+        /// <summary>
+        /// The queue of bytes waiting to be written to disk
+        /// </summary>
+        private ConcurrentQueue<(byte[], int)> BytesReadQueue = new();
+        /// <summary>
+        /// Evaluate if more can be read, or if the reading should be suspended due to the amount of information waiting to be written
+        /// </summary>
+        private bool CanStillRead => (BytesReadQueue?.Count ?? 0) < bufferMax;
+        /// <summary>
+        /// Returns true if the <see cref="KillReadTaskField"/> is true, or if cancellation was requested.
+        /// </summary>
+        /// <remarks>Allows dissaociating the read task from the cancellation source.</remarks>
+        private bool KillReadTask { get => KillReadTaskField || (CancellationSource?.IsCancellationRequested ?? false); set => KillReadTaskField = value; }
+        private bool KillReadTaskField;
+        private ConcurrentQueue<double> ProgressUpdates = new();
+        private CancellationTokenSource CancellationSource;
+        private Exception exceptionData;
+
+        #endregion
+
+        /// <summary>
+        /// Sets up the flags that allow the read/write tasks to run.
+        /// </summary>
+        internal void SetStarted()
+        {
             CancellationSource = new CancellationTokenSource();
             StartDate = DateTime.Now;
             IsCopied = false;
             IsCopying = true;
-
-            Task<bool> copyTask = Task.Run(() =>
-           {
-               Directory.CreateDirectory(Destination.DirectoryName);
-               Destination.Delete();
-
-               bool pbCancel = false;
-               return FileCopyEx.CopyFile(Source.FullName, Destination.FullName, CopyProgressHandler, ref pbCancel, CopyFileFlags.COPY_FILE_RESTARTABLE);
-               //return DoubleBufferCopy();
-               //return SingleBufferCopy();
-           
-           }, CancellationSource.Token);
-
-            Task<bool> continuation = copyTask.ContinueWith((result) =>
-           {
-               bool completed = result.IsCompleted && !result.IsFaulted && result.Result;
-               if (!completed)
-               {
-                   Destination.Delete(); //Delete incomplete files!
-               }
-               IsCopying = false;
-               IsCopied = completed;
-               WasCancelled = CancellationSource.IsCancellationRequested;
-               CancellationSource.Dispose();
-               CancellationSource = null;
-               EndDate = DateTime.Now;
-               Destination.Refresh();
-               if (completed)
-                   OnFileCopyCompleted();
-               else
-               {
-                   if (WasCancelled)
-                       OnFileCopyFailed("Copy Operation Cancelled", cancelled: true);
-                   else if (RaiseFailedEvent)
-                   {
-                       string copyFailedMessage = result.Exception == null ? "Copy Operation Failed" : result.Exception.Message;
-                       OnFileCopyFailed(copyFailedMessage, result.Exception, failed: true);
-                   }
-               }
-               return completed;
-           }, TaskContinuationOptions.LongRunning);
-
-            //copyTask.Start();
-            return continuation;
+            KillReadTask = false;
         }
 
-        /// <summary> Custom written copy operation that handles the read/write </summary>
-        /// <returns> TRUE if successful, false is not </returns>
-        /// <remarks> <see href="https://stackoverflow.com/questions/6044629/file-copy-with-progress-bar"/></remarks>
-        /// Was providing approx 3-5 MegaBytes per minute in my testing
-        private bool SingleBufferCopy()
+        /// <summary>
+        /// Set <see cref="IsCopying"/> to FALSE <br/>
+        /// set <see cref="EndDate"/> <br/>
+        /// Dospose of cancellation token
+        /// </summary>
+        /// <param name="wasCancelled">set <see cref="WasCancelled"/></param>
+        /// <param name="isCopied">set <see cref="IsCopied"/></param>
+        private void SetEnded(bool wasCancelled, bool isCopied)
         {
-            byte[] buffer = new byte[1024 * 1024]; // 1MB buffer
-
-            using (FileStream source = Source.OpenRead())
-            {
-                long fileLength = source.Length;
-                if (Destination.Exists) Destination.Delete();
-                using (FileStream dest = new FileStream(Destination.FullName, FileMode.CreateNew, FileAccess.Write))
-                {
-                    long totalBytes = 0;
-                    int currentBlockSize = 0;
-
-                    while ((currentBlockSize = source.Read(buffer, 0, buffer.Length)) > 0)
-                    {
-                        totalBytes += currentBlockSize;
-                        double percentage = (double)totalBytes * 100.0 / fileLength;
-
-                        dest.Write(buffer, 0, currentBlockSize);
-
-                        OnFileCopyProgressUpdated(percentage);
-                        if (CancellationSource.IsCancellationRequested)
-                        {
-                            return false;
-                        }
-                    }
-                }
-            }
-            return true;
+            KillReadTask = true;
+            IsCopying = false;
+            WasCancelled = wasCancelled;
+            IsCopied = isCopied;
+            EndDate = DateTime.Now;
+            CancellationSource.Dispose();
+            CancellationSource = null;
         }
 
-        /// <summary> Custom written copy operation that handles the read/write </summary>
-        /// <returns> TRUE if successful, false is not </returns>
-        /// <remarks> <see href="https://stackoverflow.com/questions/6044629/file-copy-with-progress-bar"/></remarks>
-        /// Was providing approx 3-5 MegaBytes per minute in my testing
-        private bool DoubleBufferCopy()
+        /// <summary>
+        /// Create a task that reads the file into memory
+        /// </summary>
+        /// <returns>An unstarted task that completes when the read operation is cancelled, or when the entire file has been read into memory. <br/> TASK MUST BE STARTED!</returns>
+        internal Task GetReadTask()
         {
-            const int bufferSize = 1024 * 1024;  //1MB
-            byte[] buffer = new byte[bufferSize], buffer2 = new byte[bufferSize];
-            bool swap = false;
-            double reportedProgress = 0, progress;
-            int read = 0;
-            long len = Source.Length;    
-            float flen = len;
-            Task writer = null;
-
-            Destination.Delete();
-            using (var source = Source.OpenRead())
-            using (var dest = Destination.OpenWrite())
+            return new Task(() =>
             {
-                dest.SetLength(source.Length);
-                for (long size = 0; size < len; size += read)
+                byte[] buffer;
+                int bytesRead = 0, tries = 1;
+                try
                 {
-                    Destination.Directory.Create();
-                    if (Source.Length == 0)
+                    if (Source.Length == 0) return;
+                    using (var source = Source.OpenRead())
                     {
-                        File.WriteAllBytes(Destination.FullName, Array.Empty<byte>());
-                        OnFileCopyProgressUpdated(100);
-                    }
-                    else
-                    {
-                        long sizeWritten = 0, SourceLength = Source.Length;
-                        bool flushed = false;
-                        using (var dest = Destination.OpenWrite())
+                        for (long size = 0; size < source.Length; size += bytesRead)
                         {
-
-                        TryWrite:
+                        TryRead:
                             try
                             {
-                                while (sizeWritten < SourceLength && exceptionData is null)
+                                while (IsPaused || !CanStillRead)
                                 {
-                                    if (CancellationSource.IsCancellationRequested) break;
-                                    if (IsPaused) Thread.Sleep(100);
-                                    if (!BytesReadQueue.IsEmpty && BytesReadQueue.TryDequeue(out var tuple))
-                                    {
-                                        dest.Write(tuple.Item1, 0, tuple.Item2);
-                                        sizeWritten += tuple.Item2;
-                                        OnFileCopyProgressUpdated((double)sizeWritten / SourceLength * 100);
-                                    }
-                                    else
-                                    {
-                                        //wait for an item to hit the queue
-                                        Thread.Sleep(25);
-                                    }
+                                    //Check if paused, the WriteTask threw an exception, or if already read the max buffer size
+                                    if (KillReadTask) break;
+                                    Thread.Sleep(10);
                                 }
-                                if (!flushed)
-                                {
-                                    dest.Flush(); flushed = true;
-                                    dest.Close();
-                                }
-                                if (Progress == 100 && SetAttributes != null)
-                                {
-                                    SetAttributes(Destination);
-                                }
-
+                                if (KillReadTask) break;
+                                bytesRead = source.Read((buffer = new byte[bufferSize]), 0, bufferSize);
+                                BytesReadQueue.Enqueue(new(buffer, bytesRead));
                             }
                             catch (Exception e)
                             {
                                 if (tries < RetryOptions.RetryCount)
                                 {
                                     Thread.Sleep(RetryOptions.GetWaitTime());
-                                    tries++;
-                                    goto TryWrite;
+                                    goto TryRead;
                                 }
                                 exceptionData = e;
-                            }
-                            finally
-                            {
-                                try { dest.Close(); } catch { }
+                                break;
                             }
                         }
                     }
                 }
-                writer?.Wait();  //Fixed - Thanks @sam-hocevar
-                OnFileCopyProgressUpdated(100);
-            }
-            return true;
+                catch (Exception e)
+                {
+                    exceptionData = e;
+                }
+            }, TaskCreationOptions.LongRunning);
         }
+
+        /// <summary>
+        /// Dequeues all items in the <see cref="BytesReadQueue"/>, then sets the field to null
+        /// </summary>
+        private void ClearReadQueue()
+        {
+            if (BytesReadQueue is null) return;
+            while (!BytesReadQueue.IsEmpty)
+            {
+                _ = BytesReadQueue.TryDequeue(out _);
+            }
+            BytesReadQueue = null;
+        }
+
+        /// <summary>
+        /// Create a task that writes the file to disk
+        /// </summary>
+        /// <param name="isMoving">set TRUE to delete the source file after it has been fully written to the destination</param>
+        /// <param name="SetAttributes">
+        /// Action that will set the file attributes to to the file after it has been copied/moved to the <see cref="Destination"/>
+        /// <br/> For example: <see cref="PairEvaluator.ApplyAttributes(FileInfo)"/>
+        /// </param>
+        /// <returns>A an unstarted task that completes when the write operation is cancelled, or when the entire file has been written. <br/> TASK MUST BE STARTED!</returns>
+        private Task WriteTask(bool isMoving, Action<FileInfo> SetAttributes = null)
+        {
+            Task t = new Task(() =>
+           {
+               int tries = 1;
+           TryOpenWrite:
+               try
+               {
+                   Destination.Directory.Create();
+                   if (Source.Length == 0)
+                   {
+                       File.WriteAllBytes(Destination.FullName, Array.Empty<byte>());
+                       OnFileCopyProgressUpdated(100);
+                   }
+                   else
+                   {
+                       double sizeWritten = 0;
+                       long SourceLength = Source.Length;
+                       bool flushed = false;
+                       using (var dest = Destination.OpenWrite())
+                       {
+
+                       TryWrite:
+                           try
+                           {
+                               while (sizeWritten < SourceLength && exceptionData is null)
+                               {
+                                   if (CancellationSource.IsCancellationRequested) break;
+                                   if (IsPaused) Thread.Sleep(100);
+                                   if (!BytesReadQueue.IsEmpty && BytesReadQueue.TryDequeue(out var tuple))
+                                   {
+                                       dest.Write(tuple.Item1, 0, tuple.Item2);
+                                       sizeWritten += tuple.Item2;
+                                       OnFileCopyProgressUpdated(sizeWritten / SourceLength * 100);
+                                   }
+                                   else
+                                   {
+                                       //wait for an item to hit the queue
+                                       Thread.Sleep(25);
+                                   }
+                               }
+                               if (!flushed)
+                               {
+                                   dest.Flush(); flushed = true;
+                                   dest.Close();
+                               }
+                               if (Progress == 100 && SetAttributes != null)
+                               {
+                                   SetAttributes(Destination);
+                               }
+
+                           }
+                           catch (Exception e)
+                           {
+                               if (tries < RetryOptions.RetryCount)
+                               {
+                                   Thread.Sleep(RetryOptions.GetWaitTime());
+                                   tries++;
+                                   goto TryWrite;
+                               }
+                               exceptionData = e;
+                           }
+                           finally
+                           {
+                               try { dest.Close(); } catch { }
+                           }
+                       }
+                   }
+               }
+               catch (Exception e)
+               {
+                   if (tries < RetryOptions.RetryCount)
+                   {
+                       Thread.Sleep(RetryOptions.GetWaitTime());
+                       tries++;
+                       goto TryOpenWrite;
+                   }
+                   exceptionData = e;
+               }
+               finally
+               {
+                   //Set values inditicating that operation has been completed.
+                   bool isFaulted = !(exceptionData is null);
+                   SetEnded(
+                       wasCancelled: CancellationSource?.IsCancellationRequested ?? true,
+                       isCopied: !isFaulted && !WasCancelled && Progress == 100
+                       );
+
+                   //Raise Events
+                   if (IsCopied)
+                   {
+                       if (isMoving)
+                       {
+                           try
+                           {
+                               Source.Delete();
+                           }
+                           catch (Exception e)
+                           {
+                               OnFileCopyFailed("Failed to delete source file after Move was requested.", e);
+                           }
+                           Source.Refresh();
+                       }
+                       OnFileCopyCompleted();
+                   }
+                   else
+                   {
+                       if (File.Exists(Destination.FullName))
+                       {
+                           try
+                           {
+                               Destination.Delete(); //Delete incomplete files!
+                           }
+                           catch { }
+                       }
+                       if (WasCancelled) OnFileCopyFailed("Copy Operation Cancelled", cancelled: true);
+                       else if (isFaulted)
+                       {
+                           string copyFailedMessage = !isFaulted ? "Copy Operation Failed" : exceptionData.Message;
+                           OnFileCopyFailed(copyFailedMessage, exceptionData, failed: true);
+                       }
+                   }
+                   Destination.Refresh();
+               }
+           }, TaskCreationOptions.LongRunning);
+            return t;
+        }
+
+        /// <inheritdoc cref="WriteTask(bool, Action{FileInfo})"/>
+        internal Task GetWriteTask(Action<FileInfo> SetAttributes) => WriteTask(false, SetAttributes);
+
+        /// <summary>Create a task that writes the file to disk, then deletes the source file if the file copied was successfull.</summary>
+        /// <inheritdoc cref="WriteTask(bool, Action{FileInfo})"/>
+        internal Task GetMoveTask(Action<FileInfo> SetAttributes) => Move(true, SetAttributes);
 
         /// <summary>
         /// Process the callback from CopyFileEx
@@ -514,7 +760,25 @@ namespace RFBCodeWorks.CachedRoboCopy
 
         #endregion
 
-        #region < Cancel >
+        #region < Pause / Resume / Cancel >
+
+        /// <summary>
+        /// Pause the copy action
+        /// </summary>
+        public void Pause()
+        {
+            if (IsCopying)
+                IsPaused = true;
+        }
+
+        /// <summary>
+        /// Resume if paused
+        /// </summary>
+        public void Resume()
+        {
+            if (IsCopying && IsPaused)
+                IsPaused = false;
+        }
 
         /// <summary>
         /// Determine if the copy operation can currently be cancelled
@@ -560,45 +824,23 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// <summary>
         /// Create a task that copies the file to the destination
         /// </summary>
-        /// <inheritdoc cref="RunCopyOperation"/>
-        public Task<bool> Copy(bool overwrite = true)
+        /// <inheritdoc cref="RunOperation"/>
+        public async Task<bool> Copy(bool overwrite = false)
         {
             if (disposedValue) throw new ObjectDisposedException(nameof(FileCopier));
-            return RunCopyOperation(overwrite, true);
+            await RunOperation(overwrite, false, null);
+            return IsCopied;
         }
 
         /// <summary>
-        /// Copies the file, trying multiple times per the <paramref name="options"/>
+        /// Create a task that copies the file to the destination
         /// </summary>
-        /// <inheritdoc cref="Copy(bool)"/>
-        /// <param name="options">retry options</param>
-        /// <param name="SetAttributes">
-        /// Action that will set the file attributes to to the file after it has been copied/moved
-        /// <br/> For example: <see cref="PairEvaluator.ApplyAttributes(FileInfo)"/>
-        /// </param>
-        public async Task<bool> Copy(RetryOptions options, Action<FileInfo> SetAttributes = null)
+        /// <inheritdoc cref="RunOperation"/>
+        public async Task<bool> Copy(bool overwrite, Action<FileInfo> SetAttributes = null)
         {
             if (disposedValue) throw new ObjectDisposedException(nameof(FileCopier));
-            int tries = 0;
-        TryAgain:
-            try
-            {
-                tries++;
-                bool copied = await RunCopyOperation(true, false);
-                if (copied && SetAttributes != null)
-                    SetAttributes(Destination);
-                return copied;
-            }
-            catch when (!WasCancelled && tries < options.RetryCount)
-            {
-                await Task.Delay(options.GetWaitTime());
-                goto TryAgain;
-            }
-            catch (Exception e)
-            {
-                OnFileCopyFailed(e.Message, e, failed: true);
-                return false;
-            }
+            await RunOperation(overwrite, false, SetAttributes);
+            return Destination.Exists;
         }
 
         #endregion
@@ -606,59 +848,31 @@ namespace RFBCodeWorks.CachedRoboCopy
         #region < Move >
 
         /// <summary>
-        /// Moves the file, trying multiple times per the <paramref name="options"/>
+        /// Moves the file
         /// </summary>
         /// <inheritdoc cref="Move(bool)"/>
-        /// <inheritdoc cref="Copy(RetryOptions, Action{FileInfo})"/>
-        public async Task<bool> Move(RetryOptions options, Action<FileInfo> SetAttributes = null)
+        /// <inheritdoc cref="Copy(bool, Action{FileInfo})"/>
+        public Task<bool> Move(bool overWrite = false)
         {
-            if (disposedValue) throw new ObjectDisposedException(nameof(FileCopier));
-            int tries = 0;
-            bool moved = false;
-        TryAgain:
-            try
-            {
-                tries++;
-                if (!moved)
-                    moved = await Move(true, false);
-        
-                if (moved && SetAttributes != null)
-                    SetAttributes(Destination);
-                return moved;
-            }
-            catch when (!WasCancelled && tries < options.RetryCount)
-            {
-                await Task.Delay(options.GetWaitTime());
-                goto TryAgain; 
-            }
-            catch(Exception e) when (!WasCancelled)
-            {
-                OnFileCopyFailed(e.Message, e, failed: true);
-                return false;
-            }
+            return Move(overWrite, null);
         }
 
         /// <summary>
         /// Move the file
         /// </summary>
-        /// <inheritdoc cref="RunCopyOperation"/>
-        public Task<bool> Move(bool overWrite = true)
-        {
-            return Move(overWrite, true);
-        }
-
-        
-        private async Task<bool> Move(bool overWrite, bool RaiseFailedEvent)
+        /// <inheritdoc cref="RunOperation"/>
+        public async Task<bool> Move(bool overWrite, Action<FileInfo> SetAttributes = null)
         {
             if (disposedValue) throw new ObjectDisposedException(nameof(FileCopier));
+
             if (File.Exists(Destination.FullName) && !overWrite)
             {
-                if (RaiseFailedEvent) OnFileCopyFailed("Destination file already exists", failed: true);
+                OnFileCopyFailed("Destination file already exists", failed: true);
                 return false;
             }
             if (!File.Exists(Source.FullName))
             {
-                if (RaiseFailedEvent) OnFileCopyFailed("Source does not exist", failed: true);
+                OnFileCopyFailed("Source does not exist", failed: true);
                 return false;
             }
 
@@ -667,55 +881,55 @@ namespace RFBCodeWorks.CachedRoboCopy
             string destRoot = Path.GetPathRoot(Destination.FullName);
             if (sourceRoot.Equals(destRoot, comparisonType: StringComparison.InvariantCultureIgnoreCase))
             {
+
                 //Delete the file at the destination, then move
-                StartDate = DateTime.Now;
-                IsCopied = false;
-                IsCopying = true;
-                bool copied = false;
+                SetStarted();
+                bool moved = false;
+                int tries = 1;
+            TryMove:
                 try
                 {
-                    if (File.Exists(Destination.FullName)) Destination.Delete();
-                    File.Move(Source.FullName, Destination.FullName);
-                    copied = true;
+                    Destination.Directory.Create();
+                    if (!moved)
+                    {
+                        if (File.Exists(Destination.FullName)) Destination.Delete();
+                        File.Move(Source.FullName, Destination.FullName);
+                        moved = true;
+                    }
+                    if (moved && SetAttributes != null)
+                        SetAttributes(Destination);
                 }
-                catch (Exception e) when (RaiseFailedEvent)
+                catch (Exception e)
                 {
+                    if (tries < RetryOptions.RetryCount)
+                    {
+                        await Task.Delay(RetryOptions.GetWaitTime());
+                        goto TryMove;
+                    }
                     EndDate = DateTime.Now;
                     OnFileCopyFailed(e.Message, e, failed: true);
                 }
                 finally
                 {
-                    IsCopying = false;
-                    IsCopied = copied;
-                    if (copied)
+                    SetEnded(
+                            wasCancelled: CancellationSource?.IsCancellationRequested ?? false,
+                            isCopied: moved
+                            );
+                    if (moved)
                     {
-                        EndDate = DateTime.Now;
+
                         Source.Refresh();
                         Destination.Refresh();
                         OnFileCopyProgressUpdated(100);
                         OnFileCopyCompleted();
                     }
                 }
-                return copied;
+                return moved;
             }
 
             //Source/Dest on different drives : Copy with progress
-            var copyTask = RunCopyOperation(overWrite, RaiseFailedEvent);
-            bool wasSuccess = await copyTask;
-            if (WasCancelled) return wasSuccess;
-            if (wasSuccess && IsCopied && !copyTask.IsFaulted)
-            {
-                try
-                {
-                    Source.Delete();
-                }
-                catch (Exception e) when (RaiseFailedEvent)
-                {
-                    OnFileCopyFailed($"Deletion of Source File Failed -- {Source.FullName}{Environment.NewLine}{e.Message}");
-                }
-                Source.Refresh();
-            }
-            return wasSuccess;
+            await RunOperation(overWrite, true, SetAttributes);
+            return Destination.Exists && !Source.Exists;
         }
 
         #endregion
@@ -736,7 +950,7 @@ namespace RFBCodeWorks.CachedRoboCopy
                 Cancel();
                 CancellationSource?.Dispose();
                 CancellationSource = null;
-                
+
                 // TODO: set large fields to null
                 disposedValue = true;
             }

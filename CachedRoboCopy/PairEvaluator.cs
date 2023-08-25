@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using RoboSharp.Extensions;
 
-namespace RFBCodeWorks.CachedRoboCopy
+namespace RFBCodeWorks.RoboSharpExtensions
 {
     /// <summary>
     /// Class that can be instantiated to cache the various values that get checked against when deciding to copy a file or folder.
@@ -122,9 +122,10 @@ namespace RFBCodeWorks.CachedRoboCopy
         /// </summary>
         /// <param name="info">a ProcessedFileInfo object generated that reflects the output of this method</param>
         /// <param name="pair">the pair of Source/Destination to compare</param>
-        /// <returns>TRUE if the file should be copied, FALSE if the file should be skiped</returns>
+        /// <returns>TRUE if the file should be copied/moved, FALSE if the file should be skiped</returns>
         /// <remarks>
-        /// Note: Does not evaluate the FileName inclusions from CopyOptions, since RoboCopy appears to use those to filter prior to performing these evaluations. 
+        /// Note: Does not evaluate the FileName inclusions from CopyOptions, since RoboCopy appears to use those to filter prior to performing these evaluations. <br/>
+        /// Use <see cref="ShouldIncludeFileName(IFilePair)"/> as a pre-filter for this.
         /// </remarks>
         public virtual bool ShouldCopyFile(IFilePair pair, out ProcessedFileInfo info)
         {

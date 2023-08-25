@@ -7,8 +7,9 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RoboSharp;
 using RoboSharp.Interfaces;
 using RoboSharp.Tests;
+using RFBCodeWorks.RoboSharpExtensions.CachedCommand;
 
-namespace RFBCodeWorks.CachedRoboCopy.Tests
+namespace RFBCodeWorks.RoboSharpExtensions.Tests
 {
     public static class TestPrep
     {
@@ -36,7 +37,7 @@ namespace RFBCodeWorks.CachedRoboCopy.Tests
             cmd.CopyOptions.ApplyActionFlags(copyActionFlags);
             cmd.SelectionOptions.ApplySelectionFlags(selectionFlags);
             cmd.LoggingOptions.ApplyLoggingFlags(loggingAction);
-            cmd.CopyOptions.MultiThreadedCopiesCount = 1;
+            cmd.CopyOptions.MultiThreadedCopiesCount = 0;
             return cmd;
         }
 
