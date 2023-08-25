@@ -84,10 +84,7 @@ namespace RFBCodeWorks.RoboSharpExtensions
 
         #region < Add Files >
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="file"></param>
+        /// <inheritdoc cref="ProgressEstimator.AddFile(ProcessedFileInfo)"/>
         public virtual void AddFile(ProcessedFileInfo file)
         {
             ProgressEstimator.AddFile(file);

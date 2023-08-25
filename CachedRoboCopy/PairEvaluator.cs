@@ -122,9 +122,10 @@ namespace RFBCodeWorks.RoboSharpExtensions
         /// </summary>
         /// <param name="info">a ProcessedFileInfo object generated that reflects the output of this method</param>
         /// <param name="pair">the pair of Source/Destination to compare</param>
-        /// <returns>TRUE if the file should be copied, FALSE if the file should be skiped</returns>
+        /// <returns>TRUE if the file should be copied/moved, FALSE if the file should be skiped</returns>
         /// <remarks>
-        /// Note: Does not evaluate the FileName inclusions from CopyOptions, since RoboCopy appears to use those to filter prior to performing these evaluations. 
+        /// Note: Does not evaluate the FileName inclusions from CopyOptions, since RoboCopy appears to use those to filter prior to performing these evaluations. <br/>
+        /// Use <see cref="ShouldIncludeFileName(IFilePair)"/> as a pre-filter for this.
         /// </remarks>
         public virtual bool ShouldCopyFile(IFilePair pair, out ProcessedFileInfo info)
         {

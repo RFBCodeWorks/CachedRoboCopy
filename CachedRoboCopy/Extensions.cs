@@ -51,6 +51,6 @@ namespace RFBCodeWorks.RoboSharpExtensions
         /// </summary>
         /// <param name="dir"></param>
         /// <returns>TRUE HasFiles and HasSubdirectories are both false (meaning there are no children). FALSE is any files/subdirectories exist.</returns>
-        public static bool IsEmpty(this DirectoryInfo dir) => !dir.HasFiles() && dir.HasSubDirectories();
+        public static bool IsEmpty(this DirectoryInfo dir) => !dir.HasFiles() && !dir.HasSubDirectories();
     }
 }

@@ -32,7 +32,12 @@ namespace RFBCodeWorks.RoboSharpExtensions
     /// </summary>
     public class FileCopierFactory : IFileCopierFactory
     {
-        
+
+        /// <summary>
+        /// Singleton for the default factory
+        /// </summary>
+        public static FileCopierFactory DefaultFactory { get; } = new();
+
         /// <inheritdoc/>
         public virtual IFileCopier CreateFileCopier(string source, string destination)
         {

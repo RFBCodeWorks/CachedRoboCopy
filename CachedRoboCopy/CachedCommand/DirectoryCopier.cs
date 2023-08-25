@@ -263,7 +263,6 @@ namespace RFBCodeWorks.RoboSharpExtensions.CachedCommand
                 goto tryDelete;
             }
         }
-
         
         /// <summary>
         /// Generate the FileCopiers
